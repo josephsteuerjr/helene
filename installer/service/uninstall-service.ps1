@@ -1,0 +1,7 @@
+﻿# Снятие службы Vera (права администратора).
+$ErrorActionPreference = "Stop"
+$svc = Join-Path $PSScriptRoot "vera-svc.exe"
+if (-not (Test-Path $svc)) { throw "рядом нет vera-svc.exe" }
+& $svc uninstall
+if ($LASTEXITCODE -ne 0) { throw "frame-svc uninstall вернул $LASTEXITCODE" }
+Write-Host "служба снята; продукт продолжает работать как раньше — из окна/трея"

@@ -1,0 +1,36 @@
+local-demo/data/
+local-demo/pult.exe
+local-demo/pult.json
+__pycache__/
+installer/build/
+emulate/
+
+# установщик: производные
+setup/dist/
+setup/target/
+setup/gen/
+setup/ui/node_modules/
+local-demo/frame.json
+local-demo/frame.exe
+local-demo/.close-hint-shown
+shell/target/
+svc/target/
+app/dist/
+app/node_modules/
+
+# сборки и зависимости
+svc/target/
+setup/ui/dist/
+mobile/dist/
+mobile/node_modules/
+installer/build/
+installer/logs/
+installer/emulate/
+# секреты и сессии — никогда
+.env
+.env.*
+*.session
+*.session-journal
+*.log
+# локальные пробы
+local-demo/

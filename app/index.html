@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Vera</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header id="chrome" data-tauri-drag-region>
+        <div class="chrome-left">
+          <button class="chrome-btn" id="toggle-rail" type="button" title="Полка слева · Ctrl+B" aria-label="Показать или скрыть полку слева">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><path d="M6 2.5v11" /></svg>
+          </button>
+          <div class="chrome-title" data-tauri-drag-region></div>
+        </div>
+        <div class="chrome-right">
+          <button class="chrome-btn" id="toggle-panel" type="button" title="Ходы справа · Ctrl+J" aria-label="Показать или скрыть панель ходов">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><path d="M10 2.5v11" /></svg>
+          </button>
+          <div class="controls">
+          <button class="win" data-win="minimize" type="button" aria-label="Свернуть">
+            <svg viewBox="0 0 12 12"><path d="M1 6h10" /></svg>
+          </button>
+          <button class="win" data-win="maximize" type="button" aria-label="Развернуть или восстановить">
+            <svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="1" /></svg>
+          </button>
+          <button class="win win-close" data-win="close" type="button" aria-label="Закрыть в трей">
+            <svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+          </button>
+          </div>
+        </div>
+      </header>
+
+      <aside id="rail">
+        <div class="rail-brand">
+          <div class="rail-agent" id="rail-agent">Агент</div>
+        </div>
+        <nav class="rail-nav" id="rail-nav" aria-label="Разделы"></nav>
+        <div class="rail-label">Разговоры</div>
+        <div id="rooms" class="rooms"></div>
+        <nav class="rail-nav rail-bottom" id="rail-bottom" aria-label="Настройки"></nav>
+      </aside>
+
+      <main id="main">
+        <header id="head">
+          <div class="head-copy">
+            <div id="head-kicker" class="head-kicker"></div>
+            <h1 id="head-title" class="head-title">Vera</h1>
+          </div>
+          <div class="head-side">
+            <div id="pulse" class="pulse" title="последний вызов модели"></div>
+            <div id="state" class="state-pill">
+              <span class="state-dot"></span>
+              <span id="state-text">Подключение…</span>
+              <button id="state-action" class="state-action" type="button" hidden></button>
+            </div>
+          </div>
+        </header>
+        <div id="alarm" class="alarm" hidden></div>
+        <section id="view" class="view scroll" aria-live="polite"></section>
+        <footer id="composer" class="composer">
+          <div class="composer-box">
+            <div id="composer-target" class="composer-target"></div>
+            <textarea id="say" rows="1" placeholder="Сообщение…"></textarea>
+            <button id="send" class="send" type="button" title="Отправить" aria-label="Отправить">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15.5v-11M5.8 8.7 10 4.5l4.2 4.2" /></svg>
+            </button>
+          </div>
+          <div class="composer-hint">Enter — отправить · Shift+Enter — новая строка</div>
+        </footer>
+      </main>
+
+      <aside id="panel" class="panel scroll" hidden></aside>
+    </div>
+    <div id="toast" class="toast" hidden></div>
+  </body>
+</html>
