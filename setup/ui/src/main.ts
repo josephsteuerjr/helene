@@ -136,6 +136,8 @@ function hideHint() {
 }
 
 function canGo(dir: Dir): boolean {
+  // В визарде снятия одна сцена: назад к надписи не ходим, край не показываем.
+  if (uninstallMode && dir < 0) return false;
   const n = index + dir;
   return n >= 0 && n < scenes.length;
 }

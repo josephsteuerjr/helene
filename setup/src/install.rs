@@ -669,6 +669,9 @@ pub fn install(s: &Setup, mut progress: impl FnMut(Progress)) -> Result<Receipt,
 pub fn uninstall_finish() {
     let dir = exe_dir();
     let mut cmd = Command::new("cmd");
+    // Рабочая папка хвоста — не наша: из-под неё rmdir не срабатывал, когда
+    // визард запускали прямо из папки программы.
+    cmd.current_dir(std::env::temp_dir());
     cmd.arg("/C");
     cmd.raw_arg(format!(
         "ping 127.0.0.1 -n 3 >nul & del /q \"{}\" & rmdir \"{}\"",
