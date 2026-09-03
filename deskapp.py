@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Helene — труба окна: читает дерево агента и отдаёт его окну. Референс — Claude Code.
+"""Hélène — труба окна: читает дерево агента и отдаёт его окну. Референс — Claude Code.
 
 Отдельный демон по форме Атланты: свой процесс, свой порт, дерево агента смонтировано
 только на чтение. Пишет ровно в два места: memory/.control/desk_inbox/ (mid-turn
@@ -303,6 +303,13 @@ async def api_md(request):
 
 async def api_md_tree(request):
     return _json(await asyncio.to_thread(readers.md_tree))
+
+
+async def api_home(request):
+    """Чьё это дерево. Оболочка спрашивает перед тем, как признать живой на
+    порту харнесс своим: осиротевший процесс прежней установки держал порт, и
+    новое окно молча показывало чужого агента."""
+    return _json({"tree": str(readers.tree().resolve())})
 
 
 async def api_health(request):
@@ -712,6 +719,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/md-tree", api_md_tree)
     app.router.add_get("/api/health", api_health)
     app.router.add_get("/api/state", api_state)
+    app.router.add_get("/api/home", api_home)
     app.router.add_post("/pair/new", api_pair_new)
     app.router.add_get("/pair/redeem", api_pair_redeem)
     app.router.add_get("/pair/devices", api_devices)
@@ -766,7 +774,7 @@ def main() -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     threading.Thread(target=_watcher, args=(loop,), daemon=True).start()
-    log.info("Helene слушает %s:%d, дерево %s, токен %s", host, port,
+    log.info("Hélène слушает %s:%d, дерево %s, токен %s", host, port,
              readers.tree(), "задан" if TOKEN else "НЕ задан (локальная петля)")
     web.run_app(app, host=host, port=port, loop=loop, print=None)
 

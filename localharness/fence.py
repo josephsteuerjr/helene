@@ -3,14 +3,14 @@
 
 Что даёт честно:
   * рука `shell` выполняется процессом в AppContainer Windows: у него нет доступа
-    к файлам пользователя, кроме выданных явно — папка Helene (чтение) и рабочая
+    к файлам пользователя, кроме выданных явно — папка Hélène (чтение) и рабочая
     папка агента `data/workspace` (чтение и запись). Сеть — по ручке
     `sandbox.network` (по умолчанию есть);
   * файловые руки fs_read / fs_write / fs_edit / fs_ls / fs_search получают отказ,
-    если путь ведёт за пределы папки Helene.
+    если путь ведёт за пределы папки Hélène.
 Чего не даёт: остальные руки (computer, host_ctl, run, coding_*) не огорожены —
 это записано в анатомии, чтобы владелец не думал иначе. Это ограда, не тюрьма
-для самого агента: его память и код внутри папки Helene ему доступны.
+для самого агента: его память и код внутри папки Hélène ему доступны.
 
 Включается `sandbox.enabled` в helene.json (по умолчанию включена). Если контейнер
 поднять не удалось (старая Windows, ошибка прав), shell работает без ограды,
@@ -125,7 +125,7 @@ class Container:
 
     def prepare(self) -> None:
         hr = self.userenv.CreateAppContainerProfile(
-            self.name, "Helene shell", "Ограда shell-руки агента Helene", None, 0,
+            self.name, "Hélène shell", "Ограда shell-руки агента Hélène", None, 0,
             ctypes.byref(self.sid))
         if hr != 0:
             # 0x800700B7 = уже есть: тогда просто выводим SID из имени.
@@ -144,7 +144,7 @@ class Container:
         self._grant()
 
     def _grant(self) -> None:
-        """Права контейнеру: папка Helene — читать, workspace — читать и писать.
+        """Права контейнеру: папка Hélène — читать, workspace — читать и писать.
         Один раз на установку: отметка рядом с workspace."""
         marker = self.workspace / ".fence" / f"acl-{self.sid_text}.ok"
         if marker.exists():
@@ -338,7 +338,7 @@ def install(agent_mod, tree: Path, cfg: dict) -> None:
         STATE["reason"] = f"контейнер не поднялся: {exc}; shell без ограды"
         log.warning("песочница: %s", STATE["reason"])
 
-    # 2. файловые руки — только внутри папки Helene.
+    # 2. файловые руки — только внутри папки Hélène.
     impl = getattr(agent_mod, "TOOL_IMPL", None)
     if not isinstance(impl, dict):
         return
@@ -350,10 +350,10 @@ def install(agent_mod, tree: Path, cfg: dict) -> None:
             for key in ("path", "root", "directory", "glob_root"):
                 value = kwargs.get(key)
                 if isinstance(value, str) and not _inside(value, roots, base):
-                    return (f"песочница: путь вне папки Helene — {value}. Руки работают "
+                    return (f"песочница: путь вне папки Hélène — {value}. Руки работают "
                             f"только внутри {install_root}; ограду снимает владелец в настройках.")
             if args and isinstance(args[0], str) and not _inside(args[0], roots, base):
-                return (f"песочница: путь вне папки Helene — {args[0]}. Руки работают "
+                return (f"песочница: путь вне папки Hélène — {args[0]}. Руки работают "
                         f"только внутри {install_root}; ограду снимает владелец в настройках.")
             return fn(*args, **kwargs)
         wrapper.__name__ = getattr(fn, "__name__", name)

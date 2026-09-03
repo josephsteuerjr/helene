@@ -1,4 +1,4 @@
-﻿# Установка ОПЦИОНАЛЬНОЙ службы Helene (нужны права администратора).
+﻿# Установка ОПЦИОНАЛЬНОЙ службы Hélène (нужны права администратора).
 #
 # Служба добавляет одно: агент жив до логина и без окна. По умолчанию продукт
 # работает и без неё — харнесс живёт дочерним процессом окна/трея. Руки
@@ -19,9 +19,9 @@ if (-not $identity.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrat
 }
 
 & $svc install --config (Resolve-Path $Config)
-if ($LASTEXITCODE -ne 0) { throw "frame-svc install вернул $LASTEXITCODE" }
+if ($LASTEXITCODE -ne 0) { throw "helene-svc install вернул $LASTEXITCODE" }
 
 # Перезапуск при падении самой службы (детей внутри перезапускает супервизор).
 sc.exe failure Helene reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
-Write-Host "готово: служба Helene установлена (autostart) и запущена"
+Write-Host "готово: служба Hélène установлена (autostart) и запущена"
 Write-Host "лог службы: <tree>\service.log · снять: .\uninstall-service.ps1"

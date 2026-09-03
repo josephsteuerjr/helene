@@ -138,7 +138,7 @@ export async function post<T = any>(path: string, body: unknown): Promise<T> {
 
 /** Команда оболочки; вне Tauri — честная ошибка, а не тишина. */
 export async function shell<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!inTauri) throw new Error("доступно только в приложении Helene");
+  if (!inTauri) throw new Error("доступно только в приложении Hélène");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }

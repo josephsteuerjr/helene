@@ -1,4 +1,4 @@
-// Helene — нативная оболочка основной программы (Rust, Tauri: окно + WebView2,
+// Hélène — нативная оболочка основной программы (Rust, Tauri: окно + WebView2,
 // ни одного консольного окна по построению — windows_subsystem ниже).
 //
 // Архитектура продукта: харнесс — самопереписываемый Python-организм агента,
@@ -17,7 +17,7 @@
 //   * один экземпляр: повторный запуск поднимает и фокусирует живое окно;
 //   * закрыть окно = в трей, и в первый раз об этом говорит уведомление;
 //   * слово агента, когда окно не перед глазами, приходит уведомлением Windows;
-//   * имя агента — из конфига; продукт зовётся Helene.
+//   * имя агента — из конфига; продукт зовётся Hélène.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Seek, SeekFrom};
@@ -34,7 +34,9 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// Имя в файловой системе (ярлык, папка) — латиницей; на экране — по-французски.
 const PRODUCT: &str = "Helene";
+const PRODUCT_UI: &str = "Hélène";
 const CONFIG_NAME: &str = "helene.json";
 /// Комната окна в памяти агента: memory/groups/<WINDOW_ROOM>.jsonl.
 const WINDOW_ROOM: &str = "window";
@@ -285,6 +287,32 @@ fn harness_alive(port: u16) -> bool {
     TcpStream::connect_timeout(&addr, Duration::from_millis(400)).is_ok()
 }
 
+/// Чьё дерево у харнесса на этом порту. None — не ответил.
+fn harness_tree(port: u16) -> Option<PathBuf> {
+    let agent = ureq::AgentBuilder::new().timeout(Duration::from_millis(1500)).build();
+    let body = agent
+        .get(&format!("http://127.0.0.1:{port}/api/home"))
+        .call()
+        .ok()?
+        .into_string()
+        .ok()?;
+    let v: serde_json::Value = serde_json::from_str(&body).ok()?;
+    Some(PathBuf::from(v.get("tree")?.as_str()?))
+}
+
+/// Тот ли это харнесс. Осиротевший процесс прежней установки держал порт, и
+/// окно молча показывало чужого агента — теперь это видно и сказано.
+fn harness_is_ours(port: u16, tree: &Path) -> bool {
+    let ours = tree.canonicalize().unwrap_or_else(|_| tree.to_path_buf());
+    match harness_tree(port) {
+        Some(theirs) => {
+            let theirs = theirs.canonicalize().unwrap_or(theirs);
+            theirs == ours
+        }
+        None => false,
+    }
+}
+
 /// Встроенное реле подписки ChatGPT (отдельный exe в поставке). Поднимается
 /// ребёнком, когда helene.json просит: relay.enabled. Дом реле — data/relay:
 /// учётные данные живут в папке продукта и переезжают вместе с ней.
@@ -350,7 +378,18 @@ fn spawn_local(base: &Path, cfg: &serde_json::Value) -> (Vec<Managed>, u16, Path
         cfg.get("tree").and_then(|v| v.as_str()).unwrap_or("data"),
     );
     if harness_alive(port) {
-        eprintln!("харнесс уже жив на 127.0.0.1:{port} — подключаюсь без своих детей");
+        if harness_is_ours(port, &tree) {
+            log_line(&format!("харнесс уже жив на 127.0.0.1:{port} — подключаюсь без своих детей"));
+            return (Vec::new(), port, tree);
+        }
+        // Порт держит чужой харнесс (обычно осиротевший процесс прежней
+        // установки). Молча подключаться к чужому агенту нельзя.
+        log_line(&format!(
+            "порт {port} занят ДРУГОЙ установкой — свой харнесс не поднимаю; закрой её или смени порт в {CONFIG_NAME}"
+        ));
+        toast(PRODUCT_UI, &format!(
+            "Порт {port} занят другой установкой. Окно покажет её агента, а не этого. Закрой прежнюю копию или смени порт в {CONFIG_NAME}."
+        ));
         return (Vec::new(), port, tree);
     }
     let python = python_path(base, cfg);
@@ -1006,15 +1045,15 @@ fn main() {
         ])
         .setup(move |app| {
             // Продукт зовётся своим именем: заголовок, ярлык, значок, уведомления —
-            // Helene; имя агента — только там, где говорит агент (слово владельца).
-            register_toast_identity(TOAST_ID, PRODUCT, None);
+            // Hélène; имя агента — только там, где говорит агент (слово владельца).
+            register_toast_identity(TOAST_ID, PRODUCT_UI, None);
             ensure_start_menu_shortcut(TOAST_ID, PRODUCT, None);
             let window_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?;
             let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
             debug_assert_eq!(app.config().identifier, TOAST_ID);
             let mut builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                    .title(PRODUCT)
+                    .title(PRODUCT_UI)
                     .icon(window_icon)?
                     .inner_size(1360.0, 860.0)
                     .min_inner_size(900.0, 600.0)
@@ -1041,7 +1080,7 @@ fn main() {
             // настоящий выход — только из меню трея.
             use tauri::menu::{Menu, MenuItem};
             use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-            let open = MenuItem::with_id(app, "open", "Открыть Helene", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Открыть Hélène", true, None::<&str>)?;
             let quit = MenuItem::with_id(
                 app,
                 "quit",
@@ -1052,7 +1091,7 @@ fn main() {
             let menu = Menu::with_items(app, &[&open, &quit])?;
             TrayIconBuilder::with_id("frame")
                 .icon(tray_icon)
-                .tooltip(PRODUCT)
+                .tooltip(PRODUCT_UI)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -1099,7 +1138,7 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("окно Helene не поднялось");
+        .expect("окно Hélène не поднялось");
 }
 
 /// Первое закрытие окна: сказать, что агент жив и где его найти. Один раз —
@@ -1115,7 +1154,7 @@ fn close_hint(app: &tauri::AppHandle) {
         "Окно закрыто, {} продолжает работать. Открыть снова — значок у часов.",
         identity.agent
     );
-    toast(PRODUCT, &body);
+    toast(PRODUCT_UI, &body);
 }
 
 fn show_main(app: &tauri::AppHandle) {
@@ -1177,7 +1216,7 @@ fn watch_children(app: tauri::AppHandle) {
             m.falls.push(now);
             if m.falls.len() > 5 {
                 log_line(&format!("{label} завершился ({status}) шестой раз за десять минут — пауза десять минут"));
-                toast(PRODUCT, &format!("{label} падает раз за разом. Подробности в helene.log и в логах рядом с данными."));
+                toast(PRODUCT_UI, &format!("{label} падает раз за разом. Подробности в helene.log и в логах рядом с данными."));
                 m.falls.clear();
                 m.retry_at = Some(now + Duration::from_secs(600));
                 continue;

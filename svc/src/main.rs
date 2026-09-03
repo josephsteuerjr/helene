@@ -31,8 +31,8 @@ use windows_service::service_control_handler::{self, ServiceControlHandlerResult
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 use windows_service::{define_windows_service, service_dispatcher};
 
-const SERVICE_NAME: &str = "Helene";
-const SERVICE_DISPLAY: &str = "Helene · агент";
+const SERVICE_NAME: &str = "Helene";  // идентификатор в SCM — латиницей
+const SERVICE_DISPLAY: &str = "Hélène · агент";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 fn now_stamp() -> String {

@@ -68,7 +68,7 @@ export class KeysScene extends FormScene {
       field({ label: "Ключ", value: setup.anthropic.key, type: "password", mono: true, placeholder: "sk-ant-…", onInput: (v) => (setup.anthropic.key = v) }),
     );
     const anthPresets = el("div", "actions");
-    for (const [label, url] of [["Anthropic", "https://api.anthropic.com"], ["Z.ai (GLM)", "https://api.z.ai/api/anthropic"]] as Array<[string, string]>) {
+    for (const [label, url] of [["Z.ai (GLM)", "https://api.z.ai/api/anthropic"], ["Anthropic", "https://api.anthropic.com"]] as Array<[string, string]>) {
       anthPresets.append(button(label, "quiet", () => {
         setup.anthropic.base_url = url;
         setInput(anthBase, url);

@@ -1,4 +1,4 @@
-// Установщик Helene — отдельная нативная оболочка (Rust, Tauri: окно + WebView2).
+// Установщик Hélène — отдельная нативная оболочка (Rust, Tauri: окно + WebView2).
 //
 // Три P0 из видения владельца (installer/ui/OWNER_VISION.md) живут здесь:
 //   1. один экземпляр: повторный запуск поднимает и фокусирует живое окно
@@ -71,7 +71,7 @@ async fn install(app: tauri::AppHandle, setup: install::Setup) -> Result<install
     .map_err(|e| e.to_string())?
 }
 
-/// Открыть установленный Helene и закрыть установщик.
+/// Открыть установленный Hélène и закрыть установщик.
 #[tauri::command]
 fn open_frame(app: tauri::AppHandle, exe: String) -> Result<(), String> {
     let path = std::path::PathBuf::from(&exe);
@@ -79,10 +79,10 @@ fn open_frame(app: tauri::AppHandle, exe: String) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         cmd.current_dir(dir);
     }
-    cmd.spawn().map_err(|e| format!("Helene не запустилась: {e}"))?;
+    cmd.spawn().map_err(|e| format!("Hélène не запустилась: {e}"))?;
     // Окно установщика прячем сразу, а процесс держим ещё несколько секунд:
     // Windows отдаёт передний план новому окну, только пока запустивший его
-    // процесс жив. Иначе Helene открывалась позади других окон, и казалось,
+    // процесс жив. Иначе Hélène открывалась позади других окон, и казалось,
     // что не открылся вовсе.
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
@@ -152,7 +152,7 @@ fn main() {
         let failed = result.is_err();
         if !args.iter().any(|a| a == "--quiet") {
             message_box(&match result {
-                Ok(r) => format!("Helene установлена в {}", r.dir),
+                Ok(r) => format!("Hélène установлена в {}", r.dir),
                 Err(e) => format!("Установка не удалась: {e}"),
             });
         }
@@ -186,7 +186,7 @@ fn main() {
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .title(if UNINSTALL_MODE.load(std::sync::atomic::Ordering::Relaxed) { "Снятие Helene" } else { "Установка Helene" })
+            .title(if UNINSTALL_MODE.load(std::sync::atomic::Ordering::Relaxed) { "Снятие Hélène" } else { "Установка Hélène" })
             .initialization_script(if UNINSTALL_MODE.load(std::sync::atomic::Ordering::Relaxed) {
                 "window.SETUP_MODE = 'uninstall';"
             } else {

@@ -54,7 +54,7 @@ _life = None           # memory_life — память дерева
 _desk: transport.Desk | None = None
 _bot = None            # botapi.BotTransport | None
 _speaker = "владелец"
-_title = "Helene"
+_title = "Hélène"
 _agent_name = "Агент"
 _tree: Path | None = None
 _busy: dict = {"busy": False, "run": "", "since": 0.0}   # для единой модели состояния
@@ -151,7 +151,7 @@ def _last_n() -> int:
 # Подсказка в кадр (одобрена владельцем 02.09): слабые модели пишут ответ текстом,
 # а под поднятым рычагом reply текст без руки — заметка себе, и слово теряется.
 # Идёт в блок runtime continuity кадра через параметр orient, дерево не правится.
-_WINDOW_ORIENT = ("Это окно Helene на компьютере владельца. Слово владельцу уходит "
+_WINDOW_ORIENT = ("Это окно Hélène на компьютере владельца. Слово владельцу уходит "
                   "ТОЛЬКО рукой reply; текст без руки — заметка себе, до окна он не дойдёт.")
 
 
@@ -423,7 +423,7 @@ def _write_anatomy(tree: Path, cfg: dict) -> None:
             "model": {k: v for k, v in (cfg.get("model") or {}).items()
                       if k not in ("key", "api_key")},
             "knobs": boot.env_knobs(cfg),
-            "transports": (["окно Helene"]
+            "transports": (["окно Hélène"]
                            + (["Telegram-аккаунт"] if str(telegram.get("mode") or "bot") == "account"
                               and telegram.get("api_id") else
                               ["Telegram-бот"] if telegram.get("bot_token") else [])),
@@ -502,16 +502,16 @@ def handle_birth() -> None:
     """Первый ход при рождении: агент представляется сам, не дожидаясь вопроса.
 
     Это обычный ход в комнате окна, только записка приходит не от владельца, а от
-    Helene: так она честно лежит в памяти как событие первого запуска, а ответ
+    Hélène: так она честно лежит в памяти как событие первого запуска, а ответ
     идёт тем же путём, что и любой другой (рука reply в окно; возврат хода —
     доставляем мы). Отметка born.json защищает от повторного рождения.
     """
     note = _BIRTH_NOTE.format(device=platform.node() or "этот компьютер")
     now = _now()
     source_id = f"birth-{int(now.timestamp() * 1000)}"
-    _desk.archive(note, outgoing=False, now=now, sender="Helene")
-    _desk.life(note, direction="in", actor="Helene", source_id=source_id, now=now)
-    _turn_in_window(source_id, speaker="Helene", birth=True)
+    _desk.archive(note, outgoing=False, now=now, sender="Hélène")
+    _desk.life(note, direction="in", actor="Hélène", source_id=source_id, now=now)
+    _turn_in_window(source_id, speaker="Hélène", birth=True)
 
 
 def _maybe_birth(tree: Path) -> None:
@@ -586,7 +586,7 @@ def main() -> None:
 
     owner = cfg.get("owner") or {}
     _speaker = boot.owner_name(cfg)
-    _title = str(owner.get("room") or "Helene")
+    _title = str(owner.get("room") or "Hélène")
     _agent_name = boot.agent_name(cfg)
     _deliver_unspoken = bool((cfg.get("agent") or {}).get("deliver_unspoken", True))
 
@@ -595,7 +595,7 @@ def main() -> None:
     _desk = transport.Desk(tree, STREAM, _speaker, _title, memory_life=memory_life,
                            agent_name=_agent_name)
     transport.install(agent, _desk)
-    # Песочница: shell в AppContainer, файловые руки — в папке Helene. Не вышло —
+    # Песочница: shell в AppContainer, файловые руки — в папке Hélène. Не вышло —
     # причина в анатомии, продукт работает дальше.
     try:
         import fence

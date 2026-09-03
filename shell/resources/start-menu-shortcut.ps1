@@ -1,4 +1,4 @@
-﻿# Ярлык Helene в меню «Пуск» с AppUserModel.ID.
+﻿# Ярлык Hélène в меню «Пуск» с AppUserModel.ID.
 #
 # Зачем: Windows показывает уведомления только от приложений с известным ей
 # AUMID. Для непакованных exe единственный надёжный способ его объявить —
@@ -7,11 +7,11 @@
 # ярлык сам; оболочка чинит его при запуске, если ярлыка нет.
 #
 # Запуск: powershell.exe -NoProfile -ExecutionPolicy Bypass -File <этот файл>
-#         -Exe <путь к helene.exe> -Aumid app.helene.desk [-Name Helene]
+#         -Exe <путь к helene.exe> -Aumid app.helene.desk [-Name Hélène]
 param(
     [Parameter(Mandatory = $true)][string] $Exe,
     [Parameter(Mandatory = $true)][string] $Aumid,
-    [string] $Name = "Helene",
+    [string] $Name = "Helene",   # имя файла ярлыка — латиницей
     [string] $Icon = ""
 )
 $ErrorActionPreference = "Stop"

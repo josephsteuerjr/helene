@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Сборка портативного дистрибутива Helene — установщик v0.
+"""Сборка портативного дистрибутива Hélène — установщик v0.
 
 «Установщик» v0 — это правильная папка + zip: распаковал и запустил helene.exe.
 Без службы, без UAC, без записи в реестр — ровно то, что переживает правки
@@ -200,7 +200,7 @@ def build_runtime(out: Path, cache: Path) -> None:
     subprocess.run([str(py), "-m", "pip", "cache", "purge", "-q"], check=False)
 
 
-FIRST_RUN = """# Helene · первый запуск
+FIRST_RUN = """# Hélène · первый запуск
 
 Программа не подписана сертификатом. При первом запуске Windows SmartScreen
 может сказать «Система защитила ваш компьютер»: нажми «Подробнее», затем
@@ -232,7 +232,7 @@ HELENE_JSON = """{
   },
   "owner": {
     "name": "",
-    "room": "Helene"
+    "room": "Hélène"
   },
   "model": {
     "framework": "openai",
@@ -256,7 +256,7 @@ def main() -> None:
     parser.add_argument("--skip-runtime", action="store_true",
                         help="не пересобирать runtime (он уже в out)")
     args = parser.parse_args()
-    out = Path(args.out).resolve() / "Helene"
+    out = Path(args.out).resolve() / "Helene"   # имя папки — латиницей
     cache = Path(args.out).resolve() / "cache"
     print(f"дистрибутив → {out}")
 

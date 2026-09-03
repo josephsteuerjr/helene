@@ -203,7 +203,7 @@ export async function render(container: HTMLElement): Promise<void> {
   panes.api.append(apiGrid, probeRow, apiModels);
 
   // --- Anthropic-совместимые (Anthropic, Z.ai)
-  const anthDraft = { base_url: provider === "anthropic" ? String(draft.model.base_url || "") : "https://api.anthropic.com", model: provider === "anthropic" ? String(draft.model.model || "") : "claude-sonnet-5", key: provider === "anthropic" ? String(draft.model.key || "") : "" };
+  const anthDraft = { base_url: provider === "anthropic" ? String(draft.model.base_url || "") : "https://api.z.ai/api/anthropic", model: provider === "anthropic" ? String(draft.model.model || "") : "glm-5.3", key: provider === "anthropic" ? String(draft.model.key || "") : "" };
   const anthGrid = el("div", "form-grid three");
   anthGrid.style.marginTop = "14px";
   const anthBase = field("Адрес", anthDraft.base_url, (v) => (anthDraft.base_url = v), { mono: true });
@@ -264,7 +264,7 @@ export async function render(container: HTMLElement): Promise<void> {
     }
   });
   relayRow.append(loginBtn, relayOut);
-  const chatgptDraft = { model: provider === "chatgpt" ? String(draft.model.model || "gpt-5.4") : "gpt-5.4" };
+  const chatgptDraft = { model: provider === "chatgpt" ? String(draft.model.model || "gpt-5.6-sol") : "gpt-5.6-sol" };
   const chatgptGrid = el("div", "form-grid two");
   chatgptGrid.style.marginTop = "14px";
   const chatgptModelField = field("Модель", chatgptDraft.model, (v) => (chatgptDraft.model = v), { mono: true });
@@ -448,7 +448,7 @@ export async function render(container: HTMLElement): Promise<void> {
   const sbToggle = toggle("Песочница для рук", draft.sandbox.enabled !== false, (v) => (draft.sandbox!.enabled = v));
   const sbNet = toggle("Сеть из shell", draft.sandbox.network !== false, (v) => (draft.sandbox!.network = v));
   sb.append(sbToggle, sbNet);
-  center.append(card("Песочница", sb, "Shell агента работает в контейнере Windows без доступа к файлам вне папки Helene; файловые руки — только внутри неё. Остальные руки (компьютер, проекты) ограда не трогает. Состояние видно на экране «Устройство». Применяется перезапуском."));
+  center.append(card("Песочница", sb, "Shell агента работает в контейнере Windows без доступа к файлам вне папки Hélène; файловые руки — только внутри неё. Остальные руки (компьютер, проекты) ограда не трогает. Состояние видно на экране «Устройство». Применяется перезапуском."));
 
   // --- служба
   const svc = el("div", "actions");
@@ -603,7 +603,7 @@ export async function render(container: HTMLElement): Promise<void> {
         out.model.key = anthDraft.key.trim();
       } else {
         out.model.base_url = "http://127.0.0.1:5011/v1";
-        out.model.model = chatgptDraft.model.trim() || "gpt-5.2";
+        out.model.model = chatgptDraft.model.trim() || "gpt-5.6-sol";
         if (!String(out.model.key || "").startsWith("sk-frame-")) out.model.key = "sk-frame-" + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
         out.relay = { enabled: true, port: 5011 };
       }

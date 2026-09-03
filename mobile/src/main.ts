@@ -193,7 +193,7 @@ async function renderFeed() {
       html.push(`<div class="day">${esc(d)}</div>`);
       day = d;
     }
-    const system = !m.outgoing && m.sender_name === "Helene";
+    const system = !m.outgoing && m.sender_name === "Hélène";
     const own = !m.outgoing && !system;
     html.push(`<div class="msg ${own ? "own" : ""} ${system ? "system" : ""}">
       <div class="msg-time">${fmtTime(m.timestamp)}</div>

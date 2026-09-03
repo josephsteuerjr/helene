@@ -49,10 +49,10 @@ export const setup: Setup = {
   constitution: "",
   accepted: false,
   provider: "api",
-  chatgpt_model: "gpt-5.4",
+  chatgpt_model: "gpt-5.6-sol",
   reasoning_effort: "",
   api: { base_url: "https://api.openai.com/v1", model: "gpt-5.4", key: "" },
-  anthropic: { base_url: "https://api.anthropic.com", model: "claude-sonnet-5", key: "" },
+  anthropic: { base_url: "https://api.z.ai/api/anthropic", model: "glm-5.3", key: "" },
   local: { base_url: "http://127.0.0.1:11434/v1", model: "" },
   telegram: { bot_token: "", owner_id: "" },
   service: false,
@@ -75,7 +75,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 export async function loadDefaults(): Promise<Defaults> {
   if (!inTauri) {
-    return { dir: "C:\\Users\\…\\AppData\\Local\\Programs\\Helene", payload: null, version: "превью" };
+    return { dir: "C:\\Users\\…\\AppData\\Local\\Programs\\Hélène", payload: null, version: "превью" };
   }
   return invoke<Defaults>("defaults");
 }
@@ -118,7 +118,7 @@ export async function probeModel(baseUrl: string, key: string, framework = "open
 
 /** Список моделей самого реле ChatGPT: реле поднимается на миг из поставки. */
 export async function relayModels(): Promise<string[]> {
-  if (!inTauri) return ["gpt-5.4", "gpt-5.5"];
+  if (!inTauri) return ["gpt-5.6-sol", "gpt-5.5"];
   return invoke("relay_models");
 }
 

@@ -1,4 +1,4 @@
-//! Установка Helene: поставка → папка пользователя, конфиг, конституция,
+//! Установка Hélène: поставка → папка пользователя, конфиг, конституция,
 //! ярлыки, запись об удалении, служба по желанию. Каждый шаг — расписка.
 //!
 //! Раскладка: установщик лежит ВНУТРИ поставки (папка из build_dist.py:
@@ -18,7 +18,10 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
+/// Имя в файловой системе (папка, ярлык, ключ реестра) — латиницей;
+/// на экране и в «Приложениях» — по-французски.
 pub const PRODUCT: &str = "Helene";
+pub const PRODUCT_UI: &str = "Hélène";
 pub const AUMID: &str = "app.helene.desk";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -46,11 +49,11 @@ pub struct Setup {
 }
 
 fn default_chatgpt_model() -> String {
-    "gpt-5.4".into()  // модель по умолчанию у самого реле
+    "gpt-5.6-sol".into()  // выбор владельца по умолчанию
 }
 
 fn default_anthropic() -> Endpoint {
-    Endpoint { base_url: "https://api.anthropic.com".into(), model: "claude-sonnet-5".into(), key: String::new() }
+    Endpoint { base_url: "https://api.z.ai/api/anthropic".into(), model: "glm-5.3".into(), key: String::new() }
 }
 
 #[derive(Deserialize, Clone)]
@@ -165,7 +168,7 @@ fn config_json(s: &Setup) -> serde_json::Value {
             let key = format!("sk-frame-{}", random_hex(24));
             model["base_url"] = "http://127.0.0.1:5011/v1".into();
             let chosen = s.chatgpt_model.trim();
-            model["model"] = (if chosen.is_empty() { "gpt-5.4" } else { chosen }).into();
+            model["model"] = (if chosen.is_empty() { "gpt-5.6-sol" } else { chosen }).into();
             model["key"] = key.into();
             relay = serde_json::json!({ "enabled": true, "port": 5011 });
         }
@@ -199,7 +202,7 @@ fn config_json(s: &Setup) -> serde_json::Value {
         "code": "tree",
         "port": 8094,
         "agent": { "name": s.agent.trim() },
-        "owner": { "name": s.owner.trim(), "room": PRODUCT },
+        "owner": { "name": s.owner.trim(), "room": PRODUCT_UI },
         "model": model,
         "telegram": {
             "bot_token": s.telegram.bot_token.trim(),
@@ -346,9 +349,9 @@ fn register_uninstall(dir: &Path, name: &str, icon: Option<&Path>) -> Result<(),
     let setup = dir.join("helene-setup.exe");
     let exe = dir.join("helene.exe");
     let set = |name: &str, value: String| key.set_value(name, &value).map_err(|e| e.to_string());
-    set("DisplayName", PRODUCT.to_string())?;
+    set("DisplayName", PRODUCT_UI.to_string())?;
     set("DisplayVersion", VERSION.to_string())?;
-    set("Publisher", PRODUCT.to_string())?;
+    set("Publisher", PRODUCT_UI.to_string())?;
     set("InstallLocation", dir.display().to_string())?;
     set("DisplayIcon", icon.map(|i| i.display().to_string()).unwrap_or_else(|| exe.display().to_string()))?;
     set("UninstallString", format!("\"{}\" --uninstall", setup.display()))?;
@@ -358,7 +361,7 @@ fn register_uninstall(dir: &Path, name: &str, icon: Option<&Path>) -> Result<(),
     if let Ok((toast, _)) =
         hkcu.create_subkey(format!("Software\\Classes\\AppUserModelId\\{AUMID}"))
     {
-        let _ = toast.set_value("DisplayName", &name);
+        let _ = toast.set_value("DisplayName", &PRODUCT_UI);
         let png = dir.join("data").join("icon.png");
         let icon_uri = if png.exists() { png } else { dir.join("helene.ico") };
         let _ = toast.set_value("IconUri", &icon_uri.display().to_string());
@@ -589,7 +592,7 @@ pub fn install(s: &Setup, mut progress: impl FnMut(Progress)) -> Result<Receipt,
         return Err("конституция не принята".into());
     }
     let payload = payload_dir().ok_or_else(|| {
-        "рядом с установщиком нет поставки (helene.exe, app/, runtime/) — запусти его из папки Helene".to_string()
+        "рядом с установщиком нет поставки (helene.exe, app/, runtime/) — запусти его из папки Hélène".to_string()
     })?;
     let dir = if s.dir.trim().is_empty() {
         default_dir()
@@ -740,8 +743,8 @@ pub fn uninstall(purge: bool) -> Result<String, String> {
         let _ = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
     }
     Ok(if purge {
-        format!("{PRODUCT} удалена вместе с данными")
+        format!("{PRODUCT_UI} удалена вместе с данными")
     } else {
-        format!("{PRODUCT} удалена; данные агента оставлены в {}", dir.join("data").display())
+        format!("{PRODUCT_UI} удалена; данные агента оставлены в {}", dir.join("data").display())
     })
 }

@@ -1,4 +1,4 @@
-﻿# Снятие службы Helene (права администратора).
+﻿# Снятие службы Hélène (права администратора).
 $ErrorActionPreference = "Stop"
 $svc = Join-Path $PSScriptRoot "helene-svc.exe"
 if (-not (Test-Path $svc)) { throw "рядом нет helene-svc.exe" }
