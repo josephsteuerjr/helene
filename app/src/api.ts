@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-// Приоритет: локальный конфиг оболочки (vera.json → init-скрипт) выше
+// Приоритет: локальный конфиг оболочки (helene.json → init-скрипт) выше
 // вшитого сборкой config.js; в вебе — same-origin.
 export const cfg: Cfg = window.PULT_CONFIG_OVERRIDE || window.PULT_CONFIG || { base: "", key: "" };
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -138,7 +138,7 @@ export async function post<T = any>(path: string, body: unknown): Promise<T> {
 
 /** Команда оболочки; вне Tauri — честная ошибка, а не тишина. */
 export async function shell<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!inTauri) throw new Error("доступно только в приложении Vera");
+  if (!inTauri) throw new Error("доступно только в приложении Helene");
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }

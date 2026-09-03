@@ -1,10 +1,10 @@
-//! Установка Vera: поставка → папка пользователя, конфиг, конституция,
+//! Установка Helene: поставка → папка пользователя, конфиг, конституция,
 //! ярлыки, запись об удалении, служба по желанию. Каждый шаг — расписка.
 //!
 //! Раскладка: установщик лежит ВНУТРИ поставки (папка из build_dist.py:
-//! vera.exe, app/, runtime/, tree/, vera-svc.exe, vera-relay.exe…).
-//! Установка = копия этой папки в %LocalAppData%\Programs\Vera плюс то,
-//! чего в поставке нет по построению: vera.json и data/soul/SOUL.md.
+//! helene.exe, app/, runtime/, tree/, helene-svc.exe, helene-relay.exe…).
+//! Установка = копия этой папки в %LocalAppData%\Programs\Helene плюс то,
+//! чего в поставке нет по построению: helene.json и data/soul/SOUL.md.
 //! Машинная часть (служба в Program Files) — отдельный поднятый вызов; сама
 //! установка прав не требует и не получает.
 use std::path::{Path, PathBuf};
@@ -18,12 +18,12 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-pub const PRODUCT: &str = "Vera";
-pub const AUMID: &str = "app.vera.desk";
+pub const PRODUCT: &str = "Helene";
+pub const AUMID: &str = "app.helene.desk";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Файлы поставки, по которым мы узнаём её папку.
-const PAYLOAD_MARKERS: [&str; 3] = ["vera.exe", "app", "runtime"];
+const PAYLOAD_MARKERS: [&str; 3] = ["helene.exe", "app", "runtime"];
 
 #[derive(Deserialize, Clone)]
 pub struct Setup {
@@ -34,7 +34,11 @@ pub struct Setup {
     pub provider: String,
     #[serde(default = "default_chatgpt_model")]
     pub chatgpt_model: String,
+    #[serde(default)]
+    pub reasoning_effort: String,
     pub api: Endpoint,
+    #[serde(default = "default_anthropic")]
+    pub anthropic: Endpoint,
     pub local: LocalEndpoint,
     pub telegram: Telegram,
     pub service: bool,
@@ -42,7 +46,11 @@ pub struct Setup {
 }
 
 fn default_chatgpt_model() -> String {
-    "gpt-5.2".into()
+    "gpt-5.4".into()  // модель по умолчанию у самого реле
+}
+
+fn default_anthropic() -> Endpoint {
+    Endpoint { base_url: "https://api.anthropic.com".into(), model: "claude-sonnet-5".into(), key: String::new() }
 }
 
 #[derive(Deserialize, Clone)]
@@ -108,7 +116,7 @@ pub fn default_dir() -> PathBuf {
     base.join("Programs").join(PRODUCT)
 }
 
-/// Папка поставки: рядом с установщиком лежат vera.exe, app/ и runtime/.
+/// Папка поставки: рядом с установщиком лежат helene.exe, app/ и runtime/.
 pub fn payload_dir() -> Option<PathBuf> {
     let here = exe_dir();
     if PAYLOAD_MARKERS.iter().all(|m| here.join(m).exists()) {
@@ -147,7 +155,7 @@ fn copy_dir(src: &Path, dst: &Path, skip_root: &[&str]) -> Result<usize, String>
     Ok(count)
 }
 
-/// vera.json из решений установки. Относительные пути: папка переносима целиком.
+/// helene.json из решений установки. Относительные пути: папка переносима целиком.
 fn config_json(s: &Setup) -> serde_json::Value {
     let mut model = serde_json::json!({ "framework": "openai", "max_tokens": 8192 });
     let mut relay = serde_json::Value::Null;
@@ -157,7 +165,7 @@ fn config_json(s: &Setup) -> serde_json::Value {
             let key = format!("sk-frame-{}", random_hex(24));
             model["base_url"] = "http://127.0.0.1:5011/v1".into();
             let chosen = s.chatgpt_model.trim();
-            model["model"] = (if chosen.is_empty() { "gpt-5.2" } else { chosen }).into();
+            model["model"] = (if chosen.is_empty() { "gpt-5.4" } else { chosen }).into();
             model["key"] = key.into();
             relay = serde_json::json!({ "enabled": true, "port": 5011 });
         }
@@ -166,11 +174,21 @@ fn config_json(s: &Setup) -> serde_json::Value {
             model["model"] = s.local.model.trim().into();
             model["key"] = "".into();
         }
+        "anthropic" => {
+            model["framework"] = "anthropic".into();
+            model["base_url"] = s.anthropic.base_url.trim().into();
+            model["model"] = s.anthropic.model.trim().into();
+            model["key"] = s.anthropic.key.trim().into();
+        }
         _ => {
             model["base_url"] = s.api.base_url.trim().into();
             model["model"] = s.api.model.trim().into();
             model["key"] = s.api.key.trim().into();
         }
+    }
+    let effort = s.reasoning_effort.trim().to_lowercase();
+    if ["low", "medium", "high", "xhigh"].contains(&effort.as_str()) {
+        model["reasoning_effort"] = effort.into();
     }
     let mut cfg = serde_json::json!({
         "mode": "local",
@@ -248,9 +266,9 @@ pub fn stop_running(dir: &Path) {
     std::thread::sleep(std::time::Duration::from_millis(600));
 }
 
-/// Имя агента из установленного vera.json — для снятия ярлыков с его именем.
+/// Имя агента из установленного helene.json — для снятия ярлыков с его именем.
 fn installed_agent_name(dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(dir.join("vera.json")).ok()?;
+    let raw = std::fs::read_to_string(dir.join("helene.json")).ok()?;
     let cfg: serde_json::Value = serde_json::from_str(&raw).ok()?;
     let name = cfg.get("agent")?.get("name")?.as_str()?.trim().to_string();
     if name.is_empty() { None } else { Some(name) }
@@ -259,6 +277,7 @@ fn installed_agent_name(dir: &Path) -> Option<String> {
 /// Иконка агента: бежевый квадрат с его инициалом, рисует встроенный Python
 /// (app/resources/make_icon.py). Ложится в data/icon.{ico,png}; без неё
 /// ярлыки берут значок exe.
+#[allow(dead_code)]
 fn agent_icon(dir: &Path, name: &str) -> Option<PathBuf> {
     let python = dir.join("runtime").join("python.exe");
     let script = dir.join("app").join("resources").join("make_icon.py");
@@ -274,7 +293,7 @@ fn agent_icon(dir: &Path, name: &str) -> Option<PathBuf> {
 }
 
 fn shortcuts(exe: &Path, name: &str, icon: Option<&Path>) -> Result<String, String> {
-    let script = std::env::temp_dir().join("vera-start-menu-shortcut.ps1");
+    let script = std::env::temp_dir().join("helene-start-menu-shortcut.ps1");
     std::fs::write(&script, include_str!("../../shell/resources/start-menu-shortcut.ps1"))
         .map_err(|e| e.to_string())?;
     let mut cmd = Command::new("powershell.exe");
@@ -324,8 +343,8 @@ fn register_uninstall(dir: &Path, name: &str, icon: Option<&Path>) -> Result<(),
             "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{PRODUCT}"
         ))
         .map_err(|e| e.to_string())?;
-    let setup = dir.join("vera-setup.exe");
-    let exe = dir.join("vera.exe");
+    let setup = dir.join("helene-setup.exe");
+    let exe = dir.join("helene.exe");
     let set = |name: &str, value: String| key.set_value(name, &value).map_err(|e| e.to_string());
     set("DisplayName", PRODUCT.to_string())?;
     set("DisplayVersion", VERSION.to_string())?;
@@ -341,7 +360,7 @@ fn register_uninstall(dir: &Path, name: &str, icon: Option<&Path>) -> Result<(),
     {
         let _ = toast.set_value("DisplayName", &name);
         let png = dir.join("data").join("icon.png");
-        let icon_uri = if png.exists() { png } else { dir.join("vera.ico") };
+        let icon_uri = if png.exists() { png } else { dir.join("helene.ico") };
         let _ = toast.set_value("IconUri", &icon_uri.display().to_string());
     }
     Ok(())
@@ -355,7 +374,7 @@ fn register_uninstall(_dir: &Path) -> Result<(), String> {
 /// Дом реле на время установки: вход в ChatGPT делается ДО копирования, а
 /// учётные данные переезжают в data/relay установленной программы.
 pub fn relay_home() -> PathBuf {
-    std::env::temp_dir().join("vera-setup-relay")
+    std::env::temp_dir().join("helene-setup-relay")
 }
 
 pub fn relay_status() -> String {
@@ -390,13 +409,59 @@ pub fn relay_abort() {
     }
 }
 
+/// Список моделей самого реле: поднять реле из поставки на временном порту, спросить
+/// /models, погасить. Без захардкоженного списка — что реле отдаёт, то и выбор.
+pub fn relay_models() -> Result<Vec<String>, String> {
+    let payload = payload_dir().ok_or("рядом с установщиком нет поставки")?;
+    let exe = payload.join("helene-relay.exe");
+    if !exe.exists() {
+        return Err("в этой поставке нет helene-relay.exe".into());
+    }
+    let home = relay_home();
+    std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
+    let port = 5019u16;
+    let mut cmd = Command::new(&exe);
+    cmd.arg("serve")
+        .current_dir(&home)
+        .env("RELAY_PORT", port.to_string())
+        .env("RELAY_LOCAL", "1")
+        .env("RELAY_LOG_DIR", home.join("logs"));
+    let python = payload.join("runtime").join("python.exe");
+    if python.exists() {
+        cmd.env("RELAY_PYTHON", &python);
+    }
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let mut child = cmd.spawn().map_err(|e| format!("реле не запустилось: {e}"))?;
+    let url = format!("http://127.0.0.1:{port}/models");
+    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(3)).build();
+    let mut models = Vec::new();
+    let mut last_err = String::new();
+    for _ in 0..16 {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        match agent.get(&url).call() {
+            Ok(resp) => {
+                models = model_ids(&resp.into_string().unwrap_or_default());
+                break;
+            }
+            Err(err) => last_err = err.to_string(),
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    if models.is_empty() {
+        return Err(format!("реле не ответило списком моделей: {}", last_err.chars().take(120).collect::<String>()));
+    }
+    Ok(models)
+}
+
 /// Логин реле в подписку ChatGPT: реле лежит в поставке, браузер откроется сам.
 pub fn relay_login() -> Result<String, String> {
     relay_abort();
     let payload = payload_dir().ok_or("рядом с установщиком нет поставки")?;
-    let exe = payload.join("vera-relay.exe");
+    let exe = payload.join("helene-relay.exe");
     if !exe.exists() {
-        return Err("в этой поставке нет vera-relay.exe".into());
+        return Err("в этой поставке нет helene-relay.exe".into());
     }
     let home = relay_home();
     std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
@@ -447,12 +512,23 @@ pub fn model_ids(body: &str) -> Vec<String> {
     ids
 }
 
-pub fn probe_model(base_url: &str, key: &str) -> (bool, String, Vec<String>) {
-    let url = format!("{}/models", base_url.trim().trim_end_matches('/'));
+pub fn probe_model(base_url: &str, key: &str, framework: &str) -> (bool, String, Vec<String>) {
+    // Anthropic-совместимые (Anthropic, Z.ai) — /v1/models с x-api-key; остальные — /models с Bearer.
+    let anthropic = framework.trim().eq_ignore_ascii_case("anthropic");
+    let base = base_url.trim().trim_end_matches('/');
+    let url = if anthropic {
+        if base.ends_with("/v1") { format!("{base}/models") } else { format!("{base}/v1/models") }
+    } else {
+        format!("{base}/models")
+    };
     let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).build();
     let mut req = agent.get(&url);
     if !key.trim().is_empty() {
-        req = req.set("Authorization", &format!("Bearer {}", key.trim()));
+        if anthropic {
+            req = req.set("x-api-key", key.trim()).set("anthropic-version", "2023-06-01");
+        } else {
+            req = req.set("Authorization", &format!("Bearer {}", key.trim()));
+        }
     }
     match req.call() {
         Ok(resp) => {
@@ -475,7 +551,7 @@ pub fn probe_model(base_url: &str, key: &str) -> (bool, String, Vec<String>) {
 /// спрашиваем SCM сами — квитанция о фактическом состоянии, не «запустил».
 fn install_service(dir: &Path) -> String {
     let script = dir.join("install-service.ps1");
-    if !script.exists() || !dir.join("vera-svc.exe").exists() {
+    if !script.exists() || !dir.join("helene-svc.exe").exists() {
         return "absent".into();
     }
     let mut cmd = Command::new("powershell.exe");
@@ -483,7 +559,7 @@ fn install_service(dir: &Path) -> String {
         "-NoProfile",
         "-Command",
         &format!(
-            "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"{}\"'",
+            "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"'",
             script.display()
         ),
     ]);
@@ -513,7 +589,7 @@ pub fn install(s: &Setup, mut progress: impl FnMut(Progress)) -> Result<Receipt,
         return Err("конституция не принята".into());
     }
     let payload = payload_dir().ok_or_else(|| {
-        "рядом с установщиком нет поставки (vera.exe, app/, runtime/) — запусти его из папки Vera".to_string()
+        "рядом с установщиком нет поставки (helene.exe, app/, runtime/) — запусти его из папки Helene".to_string()
     })?;
     let dir = if s.dir.trim().is_empty() {
         default_dir()
@@ -535,13 +611,13 @@ pub fn install(s: &Setup, mut progress: impl FnMut(Progress)) -> Result<Receipt,
     };
 
     tick("Копирую файлы программы", &mut progress);
-    // vera.json и data/ поставки не копируем: конфиг пишем свой, данные рождаются здесь.
-    let copied = copy_dir(&payload, &dir, &["vera.json", "data", ".close-hint-shown", "vera.log"])?;
+    // helene.json и data/ поставки не копируем: конфиг пишем свой, данные рождаются здесь.
+    let copied = copy_dir(&payload, &dir, &["helene.json", "data", ".close-hint-shown", "helene.log"])?;
     steps.push(Step { label: "Файлы программы".into(), ok: true, note: Some(format!("{copied} файлов")) });
 
     tick("Записываю настройки и конституцию", &mut progress);
     let cfg = serde_json::to_string_pretty(&config_json(s)).map_err(|e| e.to_string())?;
-    write_atomic(&dir.join("vera.json"), &(cfg + "\n"))?;
+    write_atomic(&dir.join("helene.json"), &(cfg + "\n"))?;
     let soul = s.constitution.replace("\r\n", "\n");
     write_atomic(&dir.join("data").join("soul").join("SOUL.md"), &soul)?;
     steps.push(Step { label: "Настройки и конституция".into(), ok: true, note: None });
@@ -551,10 +627,11 @@ pub fn install(s: &Setup, mut progress: impl FnMut(Progress)) -> Result<Receipt,
         }
     }
 
-    let exe = dir.join("vera.exe");
+    let exe = dir.join("helene.exe");
     tick("Создаю ярлыки", &mut progress);
-    let name = if s.agent.trim().is_empty() { PRODUCT.to_string() } else { s.agent.trim().to_string() };
-    let icon = agent_icon(&dir, &name);
+    // Ярлыки и значок — продукта, не агента (слово владельца).
+    let name = PRODUCT.to_string();
+    let icon: Option<PathBuf> = None;
     match shortcuts(&exe, &name, icon.as_deref()) {
         Ok(note) => steps.push(Step { label: "Ярлыки".into(), ok: true, note: Some(note) }),
         Err(err) => steps.push(Step { label: "Ярлыки".into(), ok: false, note: Some(err) }),
@@ -595,7 +672,7 @@ pub fn uninstall_finish() {
     cmd.arg("/C");
     cmd.raw_arg(format!(
         "ping 127.0.0.1 -n 3 >nul & del /q \"{}\" & rmdir \"{}\"",
-        dir.join("vera-setup.exe").display(),
+        dir.join("helene-setup.exe").display(),
         dir.display()
     ));
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -606,14 +683,14 @@ pub fn uninstall_finish() {
 pub fn uninstall(purge: bool) -> Result<String, String> {
     let dir = exe_dir();
     stop_running(&dir);
-    if dir.join("vera-svc.exe").exists() && service_state() != "absent" {
+    if dir.join("helene-svc.exe").exists() && service_state() != "absent" {
         let script = dir.join("uninstall-service.ps1");
         let mut cmd = Command::new("powershell.exe");
         cmd.args([
             "-NoProfile",
             "-Command",
             &format!(
-                "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"{}\"'",
+                "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"'",
                 script.display()
             ),
         ]);
@@ -653,7 +730,7 @@ pub fn uninstall(purge: bool) -> Result<String, String> {
         if name == "data" && !purge {
             continue;
         }
-        if name == "vera-setup.exe" {
+        if name == "helene-setup.exe" {
             continue;
         }
         let path = entry.path();

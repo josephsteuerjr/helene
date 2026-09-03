@@ -5,7 +5,8 @@
 // команды отвечают заглушками, чтобы сцены можно было смотреть и править.
 import soulCanon from "../../../resources/SOUL.md?raw";
 
-export type Provider = "api" | "chatgpt" | "local";
+export type Provider = "api" | "anthropic" | "chatgpt" | "local";
+export type Effort = "" | "low" | "medium" | "high" | "xhigh";
 
 export interface Setup {
   agent: string;
@@ -14,7 +15,9 @@ export interface Setup {
   accepted: boolean;
   provider: Provider;
   chatgpt_model: string;
+  reasoning_effort: Effort;
   api: { base_url: string; model: string; key: string };
+  anthropic: { base_url: string; model: string; key: string };
   local: { base_url: string; model: string };
   telegram: { bot_token: string; owner_id: string };
   service: boolean;
@@ -46,8 +49,10 @@ export const setup: Setup = {
   constitution: "",
   accepted: false,
   provider: "api",
-  chatgpt_model: "gpt-5.2",
-  api: { base_url: "https://api.openai.com/v1", model: "gpt-5.2", key: "" },
+  chatgpt_model: "gpt-5.4",
+  reasoning_effort: "",
+  api: { base_url: "https://api.openai.com/v1", model: "gpt-5.4", key: "" },
+  anthropic: { base_url: "https://api.anthropic.com", model: "claude-sonnet-5", key: "" },
   local: { base_url: "http://127.0.0.1:11434/v1", model: "" },
   telegram: { bot_token: "", owner_id: "" },
   service: false,
@@ -70,7 +75,7 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
 export async function loadDefaults(): Promise<Defaults> {
   if (!inTauri) {
-    return { dir: "C:\\Users\\…\\AppData\\Local\\Programs\\Vera", payload: null, version: "превью" };
+    return { dir: "C:\\Users\\…\\AppData\\Local\\Programs\\Helene", payload: null, version: "превью" };
   }
   return invoke<Defaults>("defaults");
 }
@@ -91,7 +96,7 @@ export async function runInstall(onProgress: (p: Progress) => void): Promise<Rec
     }
     return {
       dir: setup.dir,
-      exe: setup.dir + "\\vera.exe",
+      exe: setup.dir + "\\helene.exe",
       service: setup.service ? "running" : "skipped",
       steps: labels.map((label) => ({ label, ok: true })),
     };
@@ -106,9 +111,15 @@ export async function runInstall(onProgress: (p: Progress) => void): Promise<Rec
 }
 
 /** Живая проверка адреса и ключа через оболочку; в превью — заглушка. */
-export async function probeModel(baseUrl: string, key: string): Promise<{ ok: boolean; note: string; models?: string[] }> {
-  if (!inTauri) return { ok: true, note: "Превью: проверка доступна в установщике" };
-  return invoke("probe_model", { baseUrl, key });
+export async function probeModel(baseUrl: string, key: string, framework = "openai"): Promise<{ ok: boolean; note: string; models?: string[] }> {
+  if (!inTauri) return { ok: true, note: "Превью: проверка доступна в установщике", models: ["пример-1", "пример-2"] };
+  return invoke("probe_model", { baseUrl, key, framework });
+}
+
+/** Список моделей самого реле ChatGPT: реле поднимается на миг из поставки. */
+export async function relayModels(): Promise<string[]> {
+  if (!inTauri) return ["gpt-5.4", "gpt-5.5"];
+  return invoke("relay_models");
 }
 
 export async function relayLogin(): Promise<string> {
@@ -119,6 +130,12 @@ export async function relayLogin(): Promise<string> {
 export async function relayStatus(): Promise<"authorized" | "pending" | "no-auth"> {
   if (!inTauri) return "no-auth";
   return invoke("relay_status");
+}
+
+/** Снятие из визарда; в превью — заглушка. */
+export async function runUninstall(purge: boolean): Promise<string> {
+  if (!inTauri) return "Превью: снятие доступно в установщике";
+  return invoke("uninstall_run", { purge });
 }
 
 export async function openFrame(exe: string): Promise<void> {

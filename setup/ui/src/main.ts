@@ -10,6 +10,7 @@ import { COPY, MIN_SCALE, PRODUCT_NAME, STAGE } from "./config";
 import { AboutScene } from "./scenes/about";
 import { ConstitutionScene } from "./scenes/constitution";
 import { InstallScene } from "./scenes/install";
+import { UninstallScene } from "./scenes/uninstall";
 import { KeysScene } from "./scenes/keys";
 import { NameScene } from "./scenes/name";
 import { ServiceScene } from "./scenes/service";
@@ -109,9 +110,12 @@ const constitution = new ConstitutionScene(q<HTMLElement>(".scene-constitution")
 const keys = new KeysScene(q<HTMLElement>(".scene-keys"));
 const service = new ServiceScene(q<HTMLElement>(".scene-service"));
 const install = new InstallScene(q<HTMLElement>(".scene-install"));
-type Scene = WordmarkScene | AboutScene | TypewriterScene | NameScene | ConstitutionScene | KeysScene | ServiceScene | InstallScene;
-const scenes: Scene[] = [wordmark, about, typewriter, name, constitution, keys, service, install];
-const byName: Record<string, number> = { about: 1, typewriter: 2, name: 3, constitution: 4, keys: 5, service: 6, install: 7 };
+const uninstall = new UninstallScene(q<HTMLElement>(".scene-uninstall"));
+type Scene = WordmarkScene | AboutScene | TypewriterScene | NameScene | ConstitutionScene | KeysScene | ServiceScene | InstallScene | UninstallScene;
+// Режим окна задаёт оболочка: установка — все сцены, снятие — одна.
+const uninstallMode = (window as Window & { SETUP_MODE?: string }).SETUP_MODE === "uninstall" || new URLSearchParams(location.search).get("mode") === "uninstall";
+const scenes: Scene[] = uninstallMode ? [wordmark, uninstall] : [wordmark, about, typewriter, name, constitution, keys, service, install];
+const byName: Record<string, number> = uninstallMode ? { uninstall: 1 } : { about: 1, typewriter: 2, name: 3, constitution: 4, keys: 5, service: 6, install: 7 };
 const nextLabel = q<HTMLElement>(".edge-next-label");
 let index = 0;
 let busy = false;

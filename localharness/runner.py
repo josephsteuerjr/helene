@@ -17,12 +17,12 @@
   2. БОТ (`botapi.py`, опция) — Telegram Bot API поверх: один токен от BotFather
      вместо номера/api_id/api_hash, маршрутизатор по адресу (window → окно,
      числовые id → бот);
-  3. КОНФИГ (`boot.py`) — vera.json кладётся туда, где дерево его читает.
+  3. КОНФИГ (`boot.py`) — helene.json кладётся туда, где дерево его читает.
 
 Организм ОДИН: у окна и бота общая память, общий кадр, общие желания. Ходы идут
 строго по одному — очередь здесь, а не в её дереве.
 
-Запуск (оболочкой): python runner.py --config <путь к vera.json>
+Запуск (оболочкой): python runner.py --config <путь к helene.json>
 Дерево данных — из PRAXIS_DESK_TREE (кладёт оболочка) или из `tree` конфига.
 """
 from __future__ import annotations
@@ -32,6 +32,7 @@ import datetime as dt
 import json
 import logging
 import os
+import platform
 import sys
 import time
 from pathlib import Path
@@ -53,11 +54,11 @@ _life = None           # memory_life — память дерева
 _desk: transport.Desk | None = None
 _bot = None            # botapi.BotTransport | None
 _speaker = "владелец"
-_title = "Vera"
+_title = "Helene"
 _agent_name = "Агент"
 _tree: Path | None = None
 _busy: dict = {"busy": False, "run": "", "since": 0.0}   # для единой модели состояния
-_deliver_unspoken = True   # agent.deliver_unspoken в vera.json; см. _turn_in_window
+_deliver_unspoken = True   # agent.deliver_unspoken в helene.json; см. _turn_in_window
 
 
 def _now() -> dt.datetime:
@@ -150,7 +151,7 @@ def _last_n() -> int:
 # Подсказка в кадр (одобрена владельцем 02.09): слабые модели пишут ответ текстом,
 # а под поднятым рычагом reply текст без руки — заметка себе, и слово теряется.
 # Идёт в блок runtime continuity кадра через параметр orient, дерево не правится.
-_WINDOW_ORIENT = ("Это окно Vera на компьютере владельца. Слово владельцу уходит "
+_WINDOW_ORIENT = ("Это окно Helene на компьютере владельца. Слово владельцу уходит "
                   "ТОЛЬКО рукой reply; текст без руки — заметка себе, до окна он не дойдёт.")
 
 
@@ -262,7 +263,7 @@ def _turn_in_window(source_id: str, *, speaker: str, birth: bool = False) -> Non
     if not spoken and not text and not media_count and (birth or _deliver_unspoken):
         # Слово написано текстом, а не рукой reply: под поднятым рычагом это
         # заметка себе, и до окна она не дошла бы. Продукт по умолчанию
-        # доставляет её на границе (agent.deliver_unspoken в vera.json), потому
+        # доставляет её на границе (agent.deliver_unspoken в helene.json), потому
         # что слабые модели теряют так каждое третье слово; при рождении — всегда.
         text = _unspoken_note()
         if text:
@@ -422,7 +423,7 @@ def _write_anatomy(tree: Path, cfg: dict) -> None:
             "model": {k: v for k, v in (cfg.get("model") or {}).items()
                       if k not in ("key", "api_key")},
             "knobs": boot.env_knobs(cfg),
-            "transports": (["окно Vera"]
+            "transports": (["окно Helene"]
                            + (["Telegram-аккаунт"] if str(telegram.get("mode") or "bot") == "account"
                               and telegram.get("api_id") else
                               ["Telegram-бот"] if telegram.get("bot_token") else [])),
@@ -468,10 +469,8 @@ def _set_busy(on: bool, run: str = "") -> None:
 
 
 _BIRTH_NOTE = (
-    "Первый запуск. Тебя только что установили; твоё имя — {agent}, владелец — "
-    "{owner}. Сообщений ещё не было. Представься: кто ты, из чего "
-    "состоишь и что умеешь здесь, и спроси, с чего начать. Коротко, живым языком, "
-    "одним сообщением. Скажи это рукой reply: только так слова дойдут до окна.")
+    "Это твой первый запуск на устройстве {device}. Тебе предлагается осмотреться "
+    "и познакомиться.")
 
 
 def _unspoken_note() -> str:
@@ -503,16 +502,16 @@ def handle_birth() -> None:
     """Первый ход при рождении: агент представляется сам, не дожидаясь вопроса.
 
     Это обычный ход в комнате окна, только записка приходит не от владельца, а от
-    Vera: так она честно лежит в памяти как событие первого запуска, а ответ
+    Helene: так она честно лежит в памяти как событие первого запуска, а ответ
     идёт тем же путём, что и любой другой (рука reply в окно; возврат хода —
     доставляем мы). Отметка born.json защищает от повторного рождения.
     """
-    note = _BIRTH_NOTE.format(agent=_agent_name, owner=_speaker)
+    note = _BIRTH_NOTE.format(device=platform.node() or "этот компьютер")
     now = _now()
     source_id = f"birth-{int(now.timestamp() * 1000)}"
-    _desk.archive(note, outgoing=False, now=now, sender="Vera")
-    _desk.life(note, direction="in", actor="Vera", source_id=source_id, now=now)
-    _turn_in_window(source_id, speaker="Vera", birth=True)
+    _desk.archive(note, outgoing=False, now=now, sender="Helene")
+    _desk.life(note, direction="in", actor="Helene", source_id=source_id, now=now)
+    _turn_in_window(source_id, speaker="Helene", birth=True)
 
 
 def _maybe_birth(tree: Path) -> None:
@@ -568,7 +567,7 @@ def main() -> None:
     config_path = Path(args.config).resolve()
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
 
-    tree = Path(os.environ.get("VERA_TREE") or os.environ.get("PRAXIS_DESK_TREE")
+    tree = Path(os.environ.get("HELENE_TREE") or os.environ.get("PRAXIS_DESK_TREE")
                 or cfg.get("tree") or "data")
     if not tree.is_absolute():
         tree = (config_path.parent / tree).resolve()
@@ -587,7 +586,7 @@ def main() -> None:
 
     owner = cfg.get("owner") or {}
     _speaker = boot.owner_name(cfg)
-    _title = str(owner.get("room") or "Vera")
+    _title = str(owner.get("room") or "Helene")
     _agent_name = boot.agent_name(cfg)
     _deliver_unspoken = bool((cfg.get("agent") or {}).get("deliver_unspoken", True))
 
@@ -596,7 +595,7 @@ def main() -> None:
     _desk = transport.Desk(tree, STREAM, _speaker, _title, memory_life=memory_life,
                            agent_name=_agent_name)
     transport.install(agent, _desk)
-    # Песочница: shell в AppContainer, файловые руки — в папке Vera. Не вышло —
+    # Песочница: shell в AppContainer, файловые руки — в папке Helene. Не вышло —
     # причина в анатомии, продукт работает дальше.
     try:
         import fence

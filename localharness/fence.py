@@ -3,16 +3,16 @@
 
 Что даёт честно:
   * рука `shell` выполняется процессом в AppContainer Windows: у него нет доступа
-    к файлам пользователя, кроме выданных явно — папка Vera (чтение) и рабочая
+    к файлам пользователя, кроме выданных явно — папка Helene (чтение) и рабочая
     папка агента `data/workspace` (чтение и запись). Сеть — по ручке
     `sandbox.network` (по умолчанию есть);
   * файловые руки fs_read / fs_write / fs_edit / fs_ls / fs_search получают отказ,
-    если путь ведёт за пределы папки Vera.
+    если путь ведёт за пределы папки Helene.
 Чего не даёт: остальные руки (computer, host_ctl, run, coding_*) не огорожены —
 это записано в анатомии, чтобы владелец не думал иначе. Это ограда, не тюрьма
-для самого агента: его память и код внутри папки Vera ему доступны.
+для самого агента: его память и код внутри папки Helene ему доступны.
 
-Включается `sandbox.enabled` в vera.json (по умолчанию включена). Если контейнер
+Включается `sandbox.enabled` в helene.json (по умолчанию включена). Если контейнер
 поднять не удалось (старая Windows, ошибка прав), shell работает без ограды,
 и причина видна в анатомии и в логе — молча притворяться защитой нельзя.
 """
@@ -28,7 +28,7 @@ import subprocess
 import time
 from pathlib import Path
 
-log = logging.getLogger("vera.fence")
+log = logging.getLogger("helene.fence")
 
 STATE: dict = {"enabled": False, "container": False, "reason": "выключена", "roots": []}
 
@@ -118,14 +118,14 @@ class Container:
         self.network = network
         self.userenv, self.kernel32, self.advapi32 = _dlls()
         digest = hashlib.sha1(str(install_root).lower().encode("utf-8")).hexdigest()[:12]
-        self.name = f"vera.shell.{digest}"
+        self.name = f"helene.shell.{digest}"
         self.sid = ctypes.c_void_p()
         self.sid_text = ""
         self.caps: list[ctypes.c_void_p] = []
 
     def prepare(self) -> None:
         hr = self.userenv.CreateAppContainerProfile(
-            self.name, "Vera shell", "Ограда shell-руки агента Vera", None, 0,
+            self.name, "Helene shell", "Ограда shell-руки агента Helene", None, 0,
             ctypes.byref(self.sid))
         if hr != 0:
             # 0x800700B7 = уже есть: тогда просто выводим SID из имени.
@@ -144,7 +144,7 @@ class Container:
         self._grant()
 
     def _grant(self) -> None:
-        """Права контейнеру: папка Vera — читать, workspace — читать и писать.
+        """Права контейнеру: папка Helene — читать, workspace — читать и писать.
         Один раз на установку: отметка рядом с workspace."""
         marker = self.workspace / ".fence" / f"acl-{self.sid_text}.ok"
         if marker.exists():
@@ -209,7 +209,7 @@ class Container:
             "PATH": os.pathsep.join([str(runtime), str(runtime / "shims"), str(runtime / "Scripts"),
                                      r"C:\Windows\System32", r"C:\Windows"]),
             "TEMP": str(tmp), "TMP": str(tmp), "HOME": str(self.workspace),
-            "PYTHONUTF8": "1", "LANG": "ru_RU.UTF-8", "VERA_SANDBOX": "1",
+            "PYTHONUTF8": "1", "LANG": "ru_RU.UTF-8", "HELENE_SANDBOX": "1",
         })
         env_block = ctypes.create_unicode_buffer(
             "".join(f"{k}={v}\0" for k, v in sorted(env.items(), key=lambda kv: kv[0].upper())) + "\0")
@@ -312,7 +312,7 @@ def _inside(path: str, roots: list[Path], base: Path) -> bool:
 
 
 def install(agent_mod, tree: Path, cfg: dict) -> None:
-    """Поднять ограду по vera.json. Ничего не роняет: не вышло — записано почему."""
+    """Поднять ограду по helene.json. Ничего не роняет: не вышло — записано почему."""
     sandbox = dict(cfg.get("sandbox") or {})
     enabled = bool(sandbox.get("enabled", True))
     network = bool(sandbox.get("network", True))
@@ -338,7 +338,7 @@ def install(agent_mod, tree: Path, cfg: dict) -> None:
         STATE["reason"] = f"контейнер не поднялся: {exc}; shell без ограды"
         log.warning("песочница: %s", STATE["reason"])
 
-    # 2. файловые руки — только внутри папки Vera.
+    # 2. файловые руки — только внутри папки Helene.
     impl = getattr(agent_mod, "TOOL_IMPL", None)
     if not isinstance(impl, dict):
         return
@@ -350,10 +350,10 @@ def install(agent_mod, tree: Path, cfg: dict) -> None:
             for key in ("path", "root", "directory", "glob_root"):
                 value = kwargs.get(key)
                 if isinstance(value, str) and not _inside(value, roots, base):
-                    return (f"песочница: путь вне папки Vera — {value}. Руки работают "
+                    return (f"песочница: путь вне папки Helene — {value}. Руки работают "
                             f"только внутри {install_root}; ограду снимает владелец в настройках.")
             if args and isinstance(args[0], str) and not _inside(args[0], roots, base):
-                return (f"песочница: путь вне папки Vera — {args[0]}. Руки работают "
+                return (f"песочница: путь вне папки Helene — {args[0]}. Руки работают "
                         f"только внутри {install_root}; ограду снимает владелец в настройках.")
             return fn(*args, **kwargs)
         wrapper.__name__ = getattr(fn, "__name__", name)

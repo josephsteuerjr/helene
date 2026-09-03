@@ -1,6 +1,6 @@
 // Настройки экраном, а не файлом: имена, модель с живой проверкой, подписка
 // ChatGPT с состоянием входа, Telegram, служба с квитанцией, автозапуск, тема,
-// папка данных. Пишет vera.json через оболочку; применяется перезапуском.
+// папка данных. Пишет helene.json через оболочку; применяется перезапуском.
 import { api, cfg, inTauri, post, shell } from "../api";
 import QRCode from "qrcode";
 import { el, esc, q, toast } from "../lib";
@@ -11,7 +11,7 @@ interface Config {
   phone?: { enabled?: boolean };
   update?: { url?: string };
   owner?: { name?: string; room?: string };
-  model?: { framework?: string; base_url?: string; model?: string; key?: string; max_tokens?: number };
+  model?: { framework?: string; base_url?: string; model?: string; key?: string; max_tokens?: number; reasoning_effort?: string };
   relay?: { enabled?: boolean; port?: number };
   telegram?: { bot_token?: string; owner_id?: number | string; mode?: string; api_id?: string | number; api_hash?: string; phone?: string };
   sandbox?: { enabled?: boolean; network?: boolean };
@@ -25,10 +25,11 @@ interface Loaded {
   exe_dir: string;
 }
 
-type Provider = "api" | "chatgpt" | "local";
+type Provider = "api" | "anthropic" | "chatgpt" | "local";
 
 function providerOf(c: Config): Provider {
   if (c.relay?.enabled) return "chatgpt";
+  if (String(c.model?.framework || "") === "anthropic") return "anthropic";
   const url = c.model?.base_url || "";
   if (/127\.0\.0\.1|localhost/.test(url) && !c.relay?.enabled) return "local";
   return "api";
@@ -143,9 +144,10 @@ export async function render(container: HTMLElement): Promise<void> {
   const model = el("div");
   const pick = el("div", "choice");
   pick.setAttribute("role", "radiogroup");
-  const panes: Record<Provider, HTMLElement> = { api: el("div"), chatgpt: el("div"), local: el("div") };
+  const panes: Record<Provider, HTMLElement> = { api: el("div"), anthropic: el("div"), chatgpt: el("div"), local: el("div") };
   const items: Array<[Provider, string, string]> = [
     ["api", "Ключ API", "OpenAI и любой совместимый адрес"],
+    ["anthropic", "Anthropic API", "Anthropic, Z.ai и совместимые"],
     ["chatgpt", "Подписка ChatGPT", "вход в аккаунт через встроенное реле"],
     ["local", "Локальная модель", "Ollama или LM Studio на этом ПК"],
   ];
@@ -184,7 +186,7 @@ export async function render(container: HTMLElement): Promise<void> {
       probeOut.className = "receipt";
       probeOut.textContent = "проверяю…";
       try {
-        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: apiDraft.base_url, key: apiDraft.key });
+        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: apiDraft.base_url, key: apiDraft.key, framework: "openai" });
         probeOut.className = "receipt " + (r.ok ? "ok" : "err");
         probeOut.textContent = r.note;
         renderModels(apiModels, r.models || [], apiDraft.model, (id) => {
@@ -199,6 +201,39 @@ export async function render(container: HTMLElement): Promise<void> {
     probeOut,
   );
   panes.api.append(apiGrid, probeRow, apiModels);
+
+  // --- Anthropic-совместимые (Anthropic, Z.ai)
+  const anthDraft = { base_url: provider === "anthropic" ? String(draft.model.base_url || "") : "https://api.anthropic.com", model: provider === "anthropic" ? String(draft.model.model || "") : "claude-sonnet-5", key: provider === "anthropic" ? String(draft.model.key || "") : "" };
+  const anthGrid = el("div", "form-grid three");
+  anthGrid.style.marginTop = "14px";
+  const anthBase = field("Адрес", anthDraft.base_url, (v) => (anthDraft.base_url = v), { mono: true });
+  const anthModelField = field("Модель", anthDraft.model, (v) => (anthDraft.model = v), { mono: true });
+  anthGrid.append(anthBase, anthModelField, field("Ключ", anthDraft.key, (v) => (anthDraft.key = v), { type: "password", mono: true, placeholder: "sk-ant-…" }));
+  const anthPresets = el("div", "actions");
+  anthPresets.style.marginTop = "12px";
+  for (const [label, url] of [["Anthropic", "https://api.anthropic.com"], ["Z.ai (GLM)", "https://api.z.ai/api/anthropic"]] as Array<[string, string]>) {
+    anthPresets.append(button(label, "quiet", () => { anthDraft.base_url = url; setInput(anthBase, url); }));
+  }
+  const anthModels = el("div", "models");
+  anthModels.hidden = true;
+  const anthOut = el("span", "receipt");
+  anthPresets.append(
+    button("Проверить", "quiet", async () => {
+      anthOut.className = "receipt";
+      anthOut.textContent = "проверяю…";
+      try {
+        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: anthDraft.base_url, key: anthDraft.key, framework: "anthropic" });
+        anthOut.className = "receipt " + (r.ok ? "ok" : "err");
+        anthOut.textContent = r.note;
+        renderModels(anthModels, r.models || [], anthDraft.model, (id) => { anthDraft.model = id; setInput(anthModelField, id); });
+      } catch (e) {
+        anthOut.className = "receipt err";
+        anthOut.textContent = String(e);
+      }
+    }),
+    anthOut,
+  );
+  panes.anthropic.append(anthGrid, anthPresets, anthModels, el("p", "field-hint", "Anthropic и Z.ai говорят на протоколе Anthropic Messages. Проверка спросит список моделей, если сервер его отдаёт."));
 
   const relayRow = el("div", "actions");
   relayRow.style.marginTop = "14px";
@@ -229,7 +264,7 @@ export async function render(container: HTMLElement): Promise<void> {
     }
   });
   relayRow.append(loginBtn, relayOut);
-  const chatgptDraft = { model: provider === "chatgpt" ? String(draft.model.model || "gpt-5.2") : "gpt-5.2" };
+  const chatgptDraft = { model: provider === "chatgpt" ? String(draft.model.model || "gpt-5.4") : "gpt-5.4" };
   const chatgptGrid = el("div", "form-grid two");
   chatgptGrid.style.marginTop = "14px";
   const chatgptModelField = field("Модель", chatgptDraft.model, (v) => (chatgptDraft.model = v), { mono: true });
@@ -243,7 +278,7 @@ export async function render(container: HTMLElement): Promise<void> {
       chatgptProbeOut.className = "receipt";
       chatgptProbeOut.textContent = "спрашиваю реле…";
       try {
-        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: "http://127.0.0.1:5011/v1", key: String(draft.model?.key || "") });
+        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: "http://127.0.0.1:5011/v1", key: String(draft.model?.key || ""), framework: "openai" });
         chatgptProbeOut.className = "receipt " + (r.ok ? "ok" : "err");
         chatgptProbeOut.textContent = r.ok ? r.note : `${r.note}. Реле поднимается вместе с программой после сохранения и перезапуска.`;
         renderModels(chatgptModels, r.models || [], chatgptDraft.model, (id) => {
@@ -275,7 +310,7 @@ export async function render(container: HTMLElement): Promise<void> {
       localProbeOut.className = "receipt";
       localProbeOut.textContent = "спрашиваю…";
       try {
-        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: localDraft.base_url, key: "" });
+        const r = await shell<{ ok: boolean; note: string; models?: string[] }>("probe_model", { baseUrl: localDraft.base_url, key: "", framework: "openai" });
         localProbeOut.className = "receipt " + (r.ok ? "ok" : "err");
         localProbeOut.textContent = r.note;
         renderModels(localModels, r.models || [], localDraft.model, (id) => {
@@ -290,7 +325,22 @@ export async function render(container: HTMLElement): Promise<void> {
     localProbeOut,
   );
   panes.local.append(localGrid, localProbeRow, localModels);
-  model.append(pick, panes.api, panes.chatgpt, panes.local);
+  // усилие рассуждения — отдельный селектор
+  let effort = String(draft.model.reasoning_effort || "");
+  const effortRow = el("div", "models");
+  effortRow.style.marginTop = "14px";
+  effortRow.append(el("span", "models-label", "Усилие рассуждения"));
+  for (const [value, label] of [["", "по умолчанию модели"], ["low", "low"], ["medium", "medium"], ["high", "high"], ["xhigh", "xhigh"]] as Array<[string, string]>) {
+    const chip = el("button", "model-chip", label);
+    chip.type = "button";
+    chip.setAttribute("aria-pressed", String(effort === value));
+    chip.addEventListener("click", () => {
+      effort = value;
+      for (const other of effortRow.querySelectorAll(".model-chip")) other.setAttribute("aria-pressed", String(other === chip));
+    });
+    effortRow.append(chip);
+  }
+  model.append(pick, panes.api, panes.anthropic, panes.chatgpt, panes.local, effortRow);
   syncPick();
   center.append(card("Модель", model));
 
@@ -398,7 +448,7 @@ export async function render(container: HTMLElement): Promise<void> {
   const sbToggle = toggle("Песочница для рук", draft.sandbox.enabled !== false, (v) => (draft.sandbox!.enabled = v));
   const sbNet = toggle("Сеть из shell", draft.sandbox.network !== false, (v) => (draft.sandbox!.network = v));
   sb.append(sbToggle, sbNet);
-  center.append(card("Песочница", sb, "Shell агента работает в контейнере Windows без доступа к файлам вне папки Vera; файловые руки — только внутри неё. Остальные руки (компьютер, проекты) ограда не трогает. Состояние видно на экране «Устройство». Применяется перезапуском."));
+  center.append(card("Песочница", sb, "Shell агента работает в контейнере Windows без доступа к файлам вне папки Helene; файловые руки — только внутри неё. Остальные руки (компьютер, проекты) ограда не трогает. Состояние видно на экране «Устройство». Применяется перезапуском."));
 
   // --- служба
   const svc = el("div", "actions");
@@ -515,7 +565,7 @@ export async function render(container: HTMLElement): Promise<void> {
         toast(String(e));
       }
     }),
-    button("Открыть vera.log", "quiet", () => {
+    button("Открыть helene.log", "quiet", () => {
       if (aboutInfo) void shell("open_path", { path: aboutInfo.log }).catch((e) => toast(String(e)));
     }),
   );
@@ -546,12 +596,19 @@ export async function render(container: HTMLElement): Promise<void> {
         out.model.base_url = localDraft.base_url.trim();
         out.model.model = localDraft.model.trim();
         out.model.key = "";
+      } else if (provider === "anthropic") {
+        out.model.framework = "anthropic";
+        out.model.base_url = anthDraft.base_url.trim();
+        out.model.model = anthDraft.model.trim();
+        out.model.key = anthDraft.key.trim();
       } else {
         out.model.base_url = "http://127.0.0.1:5011/v1";
         out.model.model = chatgptDraft.model.trim() || "gpt-5.2";
         if (!String(out.model.key || "").startsWith("sk-frame-")) out.model.key = "sk-frame-" + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
         out.relay = { enabled: true, port: 5011 };
       }
+      if (effort) out.model.reasoning_effort = effort;
+      else delete out.model.reasoning_effort;
       out.telegram = { ...(out.telegram || {}), owner_id: Number(String(out.telegram?.owner_id || "0").trim()) || 0, mode: tgMode };
       out.sandbox = { enabled: draft.sandbox?.enabled !== false, network: draft.sandbox?.network !== false };
       out.phone = { enabled: !!draft.phone?.enabled };

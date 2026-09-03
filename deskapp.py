@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Vera — труба окна: читает дерево агента и отдаёт его окну. Референс — Claude Code.
+"""Helene — труба окна: читает дерево агента и отдаёт его окну. Референс — Claude Code.
 
 Отдельный демон по форме Атланты: свой процесс, свой порт, дерево агента смонтировано
 только на чтение. Пишет ровно в два места: memory/.control/desk_inbox/ (mid-turn
@@ -7,7 +7,7 @@
 честная деградация, пока кандидат не смёржен).
 
 Запуск:
-  VERA_TREE=/data VERA_TOKEN=... python deskapp.py [port]
+  HELENE_TREE=/data HELENE_TOKEN=... python deskapp.py [port]
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ log = logging.getLogger("frame.desk")
 _HERE = Path(__file__).resolve().parent
 STATIC = next((d for d in (_HERE / "static", _HERE / "app" / "dist", _HERE.parent / "app" / "dist")
                if (d / "index.html").is_file()), _HERE / "static")
-TOKEN = (os.environ.get("VERA_TOKEN") or os.environ.get("PRAXIS_DESK_TOKEN") or "").strip()
+TOKEN = (os.environ.get("HELENE_TOKEN") or os.environ.get("PRAXIS_DESK_TOKEN") or "").strip()
 COOKIE = "desk_key"
 _SSE_CLIENTS: set[asyncio.Queue] = set()
 _WATCH_INTERVAL = 1.5
@@ -757,16 +757,16 @@ def _ensure_local_tree() -> None:
 
 def main() -> None:
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(
-        os.environ.get("VERA_PORT") or os.environ.get("PRAXIS_DESK_PORT") or 8094)
+        os.environ.get("HELENE_PORT") or os.environ.get("PRAXIS_DESK_PORT") or 8094)
     # Локальный харнесс обязан слушать ТОЛЬКО петлю: дерево без токена не должно
     # быть видно даже соседям по локальной сети. Сервер (за Caddy) — как раньше.
-    host = (os.environ.get("VERA_HOST") or os.environ.get("PRAXIS_DESK_HOST") or "0.0.0.0").strip()
+    host = (os.environ.get("HELENE_HOST") or os.environ.get("PRAXIS_DESK_HOST") or "0.0.0.0").strip()
     _ensure_local_tree()
     app = build_app()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     threading.Thread(target=_watcher, args=(loop,), daemon=True).start()
-    log.info("Vera слушает %s:%d, дерево %s, токен %s", host, port,
+    log.info("Helene слушает %s:%d, дерево %s, токен %s", host, port,
              readers.tree(), "задан" if TOKEN else "НЕ задан (локальная петля)")
     web.run_app(app, host=host, port=port, loop=loop, print=None)
 

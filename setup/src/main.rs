@@ -1,4 +1,4 @@
-// Установщик Vera — отдельная нативная оболочка (Rust, Tauri: окно + WebView2).
+// Установщик Helene — отдельная нативная оболочка (Rust, Tauri: окно + WebView2).
 //
 // Три P0 из видения владельца (installer/ui/OWNER_VISION.md) живут здесь:
 //   1. один экземпляр: повторный запуск поднимает и фокусирует живое окно
@@ -10,7 +10,7 @@
 // Окно рождается невидимым и показывается из UI после первого кадра: иначе
 // на тёмной системной теме мигнул бы белый прямоугольник WebView2.
 //
-// `vera-setup.exe --uninstall [--purge]` — удаление без окна: программа,
+// `helene-setup.exe --uninstall [--purge]` — удаление без окна: программа,
 // ярлыки, запись в «Приложениях», служба; данные остаются, если не --purge.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -35,11 +35,18 @@ fn defaults() -> install::Defaults {
 }
 
 #[tauri::command]
-async fn probe_model(base_url: String, key: String) -> serde_json::Value {
-    let (ok, note, models) = tauri::async_runtime::spawn_blocking(move || install::probe_model(&base_url, &key))
+async fn probe_model(base_url: String, key: String, framework: String) -> serde_json::Value {
+    let (ok, note, models) = tauri::async_runtime::spawn_blocking(move || install::probe_model(&base_url, &key, &framework))
         .await
         .unwrap_or((false, "проверка не выполнилась".into(), Vec::new()));
     serde_json::json!({ "ok": ok, "note": note, "models": models })
+}
+
+#[tauri::command]
+async fn relay_models() -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(install::relay_models)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -64,7 +71,7 @@ async fn install(app: tauri::AppHandle, setup: install::Setup) -> Result<install
     .map_err(|e| e.to_string())?
 }
 
-/// Открыть установленный Vera и закрыть установщик.
+/// Открыть установленный Helene и закрыть установщик.
 #[tauri::command]
 fn open_frame(app: tauri::AppHandle, exe: String) -> Result<(), String> {
     let path = std::path::PathBuf::from(&exe);
@@ -72,10 +79,10 @@ fn open_frame(app: tauri::AppHandle, exe: String) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         cmd.current_dir(dir);
     }
-    cmd.spawn().map_err(|e| format!("Vera не запустилась: {e}"))?;
+    cmd.spawn().map_err(|e| format!("Helene не запустилась: {e}"))?;
     // Окно установщика прячем сразу, а процесс держим ещё несколько секунд:
     // Windows отдаёт передний план новому окну, только пока запустивший его
-    // процесс жив. Иначе Vera открывалась позади других окон, и казалось,
+    // процесс жив. Иначе Helene открывалась позади других окон, и казалось,
     // что не открылся вовсе.
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
@@ -88,6 +95,22 @@ fn open_frame(app: tauri::AppHandle, exe: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Окно открыто как визард снятия (helene-setup.exe --uninstall без --quiet).
+static UNINSTALL_MODE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static UNINSTALL_DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Снятие из визарда: результат — текст расписки; хвост (самоудаление) — на выходе.
+#[tauri::command]
+async fn uninstall_run(purge: bool) -> Result<String, String> {
+    let text = tauri::async_runtime::spawn_blocking(move || install::uninstall(purge))
+        .await
+        .map_err(|e| e.to_string())??;
+    let _ = std::fs::write(std::env::temp_dir().join("helene-uninstall.log"), &text);
+    UNINSTALL_DONE.store(true, std::sync::atomic::Ordering::Relaxed);
+    Ok(text)
+}
+
+#[allow(dead_code)]
 fn message_box(text: &str) {
     let script = format!(
         "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{}', '{}') | Out-Null",
@@ -129,7 +152,7 @@ fn main() {
         let failed = result.is_err();
         if !args.iter().any(|a| a == "--quiet") {
             message_box(&match result {
-                Ok(r) => format!("Vera установлена в {}", r.dir),
+                Ok(r) => format!("Helene установлена в {}", r.dir),
                 Err(e) => format!("Установка не удалась: {e}"),
             });
         }
@@ -138,33 +161,37 @@ fn main() {
         }
         return;
     }
-    if args.iter().any(|a| a == "--uninstall") {
+    let uninstall_mode = args.iter().any(|a| a == "--uninstall");
+    if uninstall_mode && args.iter().any(|a| a == "--quiet") {
+        // Тихое снятие из командной строки; с окном — та же сцена, что у установки.
         let purge = args.iter().any(|a| a == "--purge");
-        let quiet = args.iter().any(|a| a == "--quiet");
         let text = match install::uninstall(purge) {
             Ok(text) => text,
             Err(err) => format!("Удаление не удалось: {err}"),
         };
-        let _ = std::fs::write(std::env::temp_dir().join("vera-uninstall.log"), &text);
-        if !quiet {
-            message_box(&text);
-        }
+        let _ = std::fs::write(std::env::temp_dir().join("helene-uninstall.log"), &text);
         install::uninstall_finish();
         return;
     }
+    UNINSTALL_MODE.store(uninstall_mode, std::sync::atomic::Ordering::Relaxed);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             focus_main(app);
         }))
-        .invoke_handler(tauri::generate_handler![defaults, install, open_frame, probe_model, relay_login, relay_status])
+        .invoke_handler(tauri::generate_handler![defaults, install, open_frame, probe_model, relay_login, relay_status, relay_models, uninstall_run])
         .setup(|app| {
             tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into()),
             )
-            .title("Установка Vera")
+            .title(if UNINSTALL_MODE.load(std::sync::atomic::Ordering::Relaxed) { "Снятие Helene" } else { "Установка Helene" })
+            .initialization_script(if UNINSTALL_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+                "window.SETUP_MODE = 'uninstall';"
+            } else {
+                "window.SETUP_MODE = 'install';"
+            })
             .inner_size(1600.0, 900.0)
             .min_inner_size(960.0, 600.0)
             .center()
@@ -189,6 +216,9 @@ fn main() {
         .run(|_app, event| {
             if let tauri::RunEvent::Exit = event {
                 install::relay_abort();
+                if UNINSTALL_DONE.load(std::sync::atomic::Ordering::Relaxed) {
+                    install::uninstall_finish();
+                }
             }
         });
 }

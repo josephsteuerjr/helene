@@ -1,9 +1,9 @@
-// Vera — нативная оболочка основной программы (Rust, Tauri: окно + WebView2,
+// Helene — нативная оболочка основной программы (Rust, Tauri: окно + WebView2,
 // ни одного консольного окна по построению — windows_subsystem ниже).
 //
 // Архитектура продукта: харнесс — самопереписываемый Python-организм агента,
 // его язык не меняется. Оболочка — то, что не самопереписывается: окно, рендер,
-// связь, трей, уведомления. Где живёт харнесс, решает `vera.json` рядом с exe:
+// связь, трей, уведомления. Где живёт харнесс, решает `helene.json` рядом с exe:
 //
 //   {"mode": "local", "python": "python", "app": "..\\deskapp.py",
 //    "tree": "data", "port": 8094, "agent": {"name": "…"}}
@@ -17,7 +17,7 @@
 //   * один экземпляр: повторный запуск поднимает и фокусирует живое окно;
 //   * закрыть окно = в трей, и в первый раз об этом говорит уведомление;
 //   * слово агента, когда окно не перед глазами, приходит уведомлением Windows;
-//   * имя агента — из конфига; продукт зовётся Vera.
+//   * имя агента — из конфига; продукт зовётся Helene.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Seek, SeekFrom};
@@ -34,12 +34,12 @@ use std::os::windows::process::CommandExt;
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-const PRODUCT: &str = "Vera";
-const CONFIG_NAME: &str = "vera.json";
+const PRODUCT: &str = "Helene";
+const CONFIG_NAME: &str = "helene.json";
 /// Комната окна в памяти агента: memory/groups/<WINDOW_ROOM>.jsonl.
 const WINDOW_ROOM: &str = "window";
 /// AppUserModelID уведомлений = identifier из tauri.conf.json (см. register_toast_identity).
-const TOAST_ID: &str = "app.vera.desk";
+const TOAST_ID: &str = "app.helene.desk";
 
 /// Журнал оболочки рядом с exe: то, что иначе терялось бы без консоли.
 fn log_line(text: &str) {
@@ -51,13 +51,13 @@ fn log_line(text: &str) {
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(exe_dir().join("vera.log"))
+        .open(exe_dir().join("helene.log"))
     {
         let _ = writeln!(f, "[{stamp}] {text}");
     }
 }
 
-/// Уведомление Windows. Ошибка не глотается: она уходит в vera.log.
+/// Уведомление Windows. Ошибка не глотается: она уходит в helene.log.
 #[cfg(windows)]
 fn toast(title: &str, body: &str) {
     use tauri_winrt_notification::{Duration as ToastDuration, Toast};
@@ -89,7 +89,7 @@ impl ChildSpec {
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            ChildSpec::Relay { .. } => "vera-relay.exe".into(),
+            ChildSpec::Relay { .. } => "helene-relay.exe".into(),
         }
     }
 
@@ -237,8 +237,8 @@ fn spawn_child(python: &Path, script: &Path, args: &[String], tree: &Path, host:
     let mut cmd = Command::new(python);
     cmd.arg(script)
         .args(args)
-        .env("VERA_TREE", tree)
-        .env("VERA_HOST", host)
+        .env("HELENE_TREE", tree)
+        .env("HELENE_HOST", host)
         .env("PYTHONUTF8", "1");
     if let Some(dir) = script.parent() {
         cmd.current_dir(dir);
@@ -286,7 +286,7 @@ fn harness_alive(port: u16) -> bool {
 }
 
 /// Встроенное реле подписки ChatGPT (отдельный exe в поставке). Поднимается
-/// ребёнком, когда vera.json просит: relay.enabled. Дом реле — data/relay:
+/// ребёнком, когда helene.json просит: relay.enabled. Дом реле — data/relay:
 /// учётные данные живут в папке продукта и переезжают вместе с ней.
 fn spawn_relay(base: &Path, cfg: &serde_json::Value, tree: &Path) -> Option<Child> {
     let relay = cfg.get("relay")?;
@@ -297,9 +297,9 @@ fn spawn_relay(base: &Path, cfg: &serde_json::Value, tree: &Path) -> Option<Chil
     {
         return None;
     }
-    let exe = base.join("vera-relay.exe");
+    let exe = base.join("helene-relay.exe");
     if !exe.exists() {
-        eprintln!("relay.enabled, но vera-relay.exe рядом нет — реле не поднимаю");
+        eprintln!("relay.enabled, но helene-relay.exe рядом нет — реле не поднимаю");
         return None;
     }
     let port = relay.get("port").and_then(|v| v.as_u64()).unwrap_or(5011);
@@ -461,9 +461,9 @@ fn relay_login() -> Result<String, String> {
     // браузер открывается сам. Консоль не нужна — и не появляется.
     relay_abort();
     let base = exe_dir();
-    let exe = base.join("vera-relay.exe");
+    let exe = base.join("helene-relay.exe");
     if !exe.exists() {
-        return Err("в этой поставке нет vera-relay.exe".into());
+        return Err("в этой поставке нет helene-relay.exe".into());
     }
     let home = base.join("data").join("relay");
     let _ = std::fs::create_dir_all(&home);
@@ -518,7 +518,7 @@ fn install_service() -> Result<String, String> {
             "-NoProfile",
             "-Command",
             &format!(
-                "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \"{}\"'",
+                "Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"'",
                 script.display()
             ),
         ])
@@ -586,7 +586,7 @@ fn remove_service() -> Result<String, String> {
             "-NoProfile",
             "-Command",
             &format!(
-                "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \"{}\"'",
+                "Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"'",
                 script.display()
             ),
         ])
@@ -725,15 +725,25 @@ fn model_ids(body: &str) -> Vec<String> {
 
 /// Живая проверка адреса и ключа: GET {base}/models с Bearer. Фраза и список.
 #[tauri::command]
-async fn probe_model(base_url: String, key: String) -> serde_json::Value {
-    let url = format!("{}/models", base_url.trim().trim_end_matches('/'));
+async fn probe_model(base_url: String, key: String, framework: Option<String>) -> serde_json::Value {
+    let anthropic = framework.as_deref().unwrap_or("").trim().eq_ignore_ascii_case("anthropic");
+    let base = base_url.trim().trim_end_matches('/').to_string();
+    let url = if anthropic {
+        if base.ends_with("/v1") { format!("{base}/models") } else { format!("{base}/v1/models") }
+    } else {
+        format!("{base}/models")
+    };
     let result = tauri::async_runtime::spawn_blocking(move || {
         let agent = ureq::AgentBuilder::new()
             .timeout(std::time::Duration::from_secs(12))
             .build();
         let mut req = agent.get(&url);
         if !key.trim().is_empty() {
-            req = req.set("Authorization", &format!("Bearer {}", key.trim()));
+            if anthropic {
+                req = req.set("x-api-key", key.trim()).set("anthropic-version", "2023-06-01");
+            } else {
+                req = req.set("Authorization", &format!("Bearer {}", key.trim()));
+            }
         }
         match req.call() {
             Ok(resp) => {
@@ -769,7 +779,7 @@ fn register_toast_identity(identifier: &str, name: &str, icon: Option<&Path>) {
     let path = format!("Software\\Classes\\AppUserModelId\\{identifier}");
     if let Ok((key, _)) = hkcu.create_subkey(path) {
         let _ = key.set_value("DisplayName", &name);
-        let icon = icon.map(Path::to_path_buf).unwrap_or_else(|| exe_dir().join("vera.ico"));
+        let icon = icon.map(Path::to_path_buf).unwrap_or_else(|| exe_dir().join("helene.ico"));
         if icon.exists() {
             let _ = key.set_value("IconUri", &icon.to_string_lossy().into_owned());
         }
@@ -795,7 +805,7 @@ fn ensure_start_menu_shortcut(identifier: &str, name: &str, icon: Option<&Path>)
         return;
     }
     let Ok(exe) = std::env::current_exe() else { return };
-    let script = std::env::temp_dir().join("vera-start-menu-shortcut.ps1");
+    let script = std::env::temp_dir().join("helene-start-menu-shortcut.ps1");
     if std::fs::write(&script, include_str!("../resources/start-menu-shortcut.ps1")).is_err() {
         log_line("ярлык меню «Пуск»: не записался скрипт");
         return;
@@ -914,12 +924,12 @@ fn main() {
         // Ненастроенный продукт встречает установщик, если он лежит рядом.
         // Без него окно открывается как есть: состояние в шапке скажет
         // «Модель не настроена» и куда идти.
-        let setup = base.join("vera-setup.exe");
+        let setup = base.join("helene-setup.exe");
         if setup.exists() {
             if Command::new(&setup).current_dir(&base).spawn().is_ok() {
                 return;
             }
-            log_line("vera-setup.exe рядом есть, но не запустился — открываю окно");
+            log_line("helene-setup.exe рядом есть, но не запустился — открываю окно");
         }
     }
     let configured = !unconfigured(&cfg);
@@ -995,24 +1005,16 @@ fn main() {
             telegram_account
         ])
         .setup(move |app| {
-            // Иконка агента (инициал на бумаге) — её рисует установщик в data/.
-            let icon_png = tree.as_ref().map(|t| t.join("icon.png")).filter(|p| p.exists());
-            let icon_ico = tree.as_ref().map(|t| t.join("icon.ico")).filter(|p| p.exists());
-            let icon_32 = tree.as_ref().map(|t| t.join("icon-32.png")).filter(|p| p.exists());
-            register_toast_identity(TOAST_ID, &agent, icon_png.as_deref());
-            ensure_start_menu_shortcut(TOAST_ID, &agent, icon_ico.as_deref());
-            let window_icon = icon_png
-                .as_deref()
-                .and_then(|p| tauri::image::Image::from_path(p).ok())
-                .unwrap_or(tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?);
-            let tray_icon = icon_32
-                .as_deref()
-                .and_then(|p| tauri::image::Image::from_path(p).ok())
-                .unwrap_or(tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?);
+            // Продукт зовётся своим именем: заголовок, ярлык, значок, уведомления —
+            // Helene; имя агента — только там, где говорит агент (слово владельца).
+            register_toast_identity(TOAST_ID, PRODUCT, None);
+            ensure_start_menu_shortcut(TOAST_ID, PRODUCT, None);
+            let window_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?;
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
             debug_assert_eq!(app.config().identifier, TOAST_ID);
             let mut builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                    .title(&agent)
+                    .title(PRODUCT)
                     .icon(window_icon)?
                     .inner_size(1360.0, 860.0)
                     .min_inner_size(900.0, 600.0)
@@ -1039,7 +1041,7 @@ fn main() {
             // настоящий выход — только из меню трея.
             use tauri::menu::{Menu, MenuItem};
             use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-            let open = MenuItem::with_id(app, "open", "Открыть Vera", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Открыть Helene", true, None::<&str>)?;
             let quit = MenuItem::with_id(
                 app,
                 "quit",
@@ -1050,7 +1052,7 @@ fn main() {
             let menu = Menu::with_items(app, &[&open, &quit])?;
             TrayIconBuilder::with_id("frame")
                 .icon(tray_icon)
-                .tooltip(agent.clone())
+                .tooltip(PRODUCT)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -1097,7 +1099,7 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("окно Vera не поднялось");
+        .expect("окно Helene не поднялось");
 }
 
 /// Первое закрытие окна: сказать, что агент жив и где его найти. Один раз —
@@ -1175,7 +1177,7 @@ fn watch_children(app: tauri::AppHandle) {
             m.falls.push(now);
             if m.falls.len() > 5 {
                 log_line(&format!("{label} завершился ({status}) шестой раз за десять минут — пауза десять минут"));
-                toast(PRODUCT, &format!("{label} падает раз за разом. Подробности в vera.log и в логах рядом с данными."));
+                toast(PRODUCT, &format!("{label} падает раз за разом. Подробности в helene.log и в логах рядом с данными."));
                 m.falls.clear();
                 m.retry_at = Some(now + Duration::from_secs(600));
                 continue;
@@ -1194,7 +1196,7 @@ fn app_info() -> serde_json::Value {
     serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
         "exe_dir": base.display().to_string(),
-        "log": base.join("vera.log").display().to_string(),
+        "log": base.join("helene.log").display().to_string(),
     })
 }
 
@@ -1258,7 +1260,7 @@ async fn update_check(url: String) -> Result<serde_json::Value, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Собрать логи для поддержки в один zip во временной папке: vera.log,
+/// Собрать логи для поддержки в один zip во временной папке: helene.log,
 /// вывод харнесса, службы и реле. Файлы сперва копируются: дети держат свои
 /// логи открытыми, и архиватор напрямую их не читает.
 /// Вход агента в Telegram своим аккаунтом: шаги status / send / code / logout
@@ -1311,10 +1313,10 @@ fn logs_bundle() -> Result<String, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let stage = std::env::temp_dir().join(format!("vera-logs-{stamp}"));
+    let stage = std::env::temp_dir().join(format!("helene-logs-{stamp}"));
     std::fs::create_dir_all(&stage).map_err(|e| e.to_string())?;
     let mut copied = 0usize;
-    let mut sources = vec![base.join("vera.log")];
+    let mut sources = vec![base.join("helene.log")];
     for name in ["deskapp.log", "runner.log", "service.log", "desk.log"] {
         sources.push(tree.join(name));
     }
@@ -1334,7 +1336,7 @@ fn logs_bundle() -> Result<String, String> {
         let _ = std::fs::remove_dir_all(&stage);
         return Err("логов пока нет".into());
     }
-    let out = std::env::temp_dir().join(format!("vera-logs-{stamp}.zip"));
+    let out = std::env::temp_dir().join(format!("helene-logs-{stamp}.zip"));
     let script = format!(
         "Compress-Archive -Force -Path '{}\\*' -DestinationPath '{}'",
         stage.display(),

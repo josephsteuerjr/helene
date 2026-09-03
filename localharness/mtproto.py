@@ -21,7 +21,7 @@ from pathlib import Path
 
 import botapi
 
-log = logging.getLogger("vera.mtproto")
+log = logging.getLogger("helene.mtproto")
 
 
 def session_path(tree: Path) -> Path:

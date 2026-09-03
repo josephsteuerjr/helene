@@ -1,4 +1,4 @@
-// Vera — основная программа. Полка слева (разделы и разговоры), разговор в
+// Helene — основная программа. Полка слева (разделы и разговоры), разговор в
 // центре, ходы справа; состояние агента одной фразой в шапке; настройки
 // экраном, а не файлом.
 import "./styles/app.css";
@@ -80,12 +80,12 @@ const ICONS: Record<View, string> = {
 };
 
 const SECTIONS: Array<{ id: View; label: string; kicker: string }> = [
-  { id: "talk", label: "Разговор", kicker: "Разговор" },
-  { id: "plans", label: "Планы", kicker: "Что агент наметил" },
-  { id: "frame", label: "Кадр", kicker: "Что видит модель" },
-  { id: "files", label: "Файлы", kicker: "Память агента файлами" },
+  { id: "talk", label: "Чат", kicker: "Чат" },
+  { id: "plans", label: "Задачи", kicker: "План агента" },
+  { id: "frame", label: "Контекст", kicker: "Что видит модель" },
+  { id: "files", label: "Файлы", kicker: "Память агента в файлах" },
   { id: "journal", label: "Журнал", kicker: "Ошибки и пропуски" },
-  { id: "anatomy", label: "Устройство", kicker: "Как это работает" },
+  { id: "anatomy", label: "Система", kicker: "Как это устроено" },
 ];
 
 function railButton(id: View, label: string): HTMLButtonElement {

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Сборка портативного дистрибутива Vera — установщик v0.
+"""Сборка портативного дистрибутива Helene — установщик v0.
 
-«Установщик» v0 — это правильная папка + zip: распаковал и запустил vera.exe.
+«Установщик» v0 — это правильная папка + zip: распаковал и запустил helene.exe.
 Без службы, без UAC, без записи в реестр — ровно то, что переживает правки
 (его слово): всё, что меняется (дерево-питон, UI), лежит файлами и обновляется
 заменой; пересборки требует только оболочка.
 
 Раскладка поставки:
-  Vera/
-    vera.exe           — оболочка (окно+трей), поднимает всё остальное
-    vera-setup.exe     — установщик: сцены первого запуска, копия в LocalAppData
-    vera.json          — конфиг v0 (local, ключ пуст — см. ПЕРВЫЙ-ЗАПУСК.md)
+  Helene/
+    helene.exe           — оболочка (окно+трей), поднимает всё остальное
+    helene-setup.exe     — установщик: сцены первого запуска, копия в LocalAppData
+    helene.json          — конфиг v0 (local, ключ пуст — см. ПЕРВЫЙ-ЗАПУСК.md)
     ПЕРВЫЙ-ЗАПУСК.md    — три шага руками, пока нет визарда
     runtime/            — embedded CPython + зависимости (самодостаточный)
     app/                — труба (deskapp+deskd+static), руннер (localharness),
@@ -200,26 +200,26 @@ def build_runtime(out: Path, cache: Path) -> None:
     subprocess.run([str(py), "-m", "pip", "cache", "purge", "-q"], check=False)
 
 
-FIRST_RUN = """# Vera · первый запуск
+FIRST_RUN = """# Helene · первый запуск
 
 Программа не подписана сертификатом. При первом запуске Windows SmartScreen
 может сказать «Система защитила ваш компьютер»: нажми «Подробнее», затем
 «Выполнить в любом случае». Это одноразово.
 
-1. Запусти `vera.exe`.
+1. Запусти `helene.exe`.
 2. Пройди четыре коротких шага в окне настройки: имя, модель, необязательные
    каналы и проверка.
 3. После перезапуска агент представится сам. Вкладка «Устройство» объясняет,
    из чего он состоит и что происходит с сообщением.
 
 Закрыть окно — не значит остановить агента: он продолжит жить в значке у часов.
-Настройку пока можно изменить в `vera.json` рядом с приложением.
+Настройку пока можно изменить в `helene.json` рядом с приложением.
 
 Все данные агента живут в `data/` рядом. Перенос на другую машину — перенос
 папки целиком.
 """
 
-VERA_JSON = """{
+HELENE_JSON = """{
   "mode": "local",
   "python": "runtime/python.exe",
   "app": "app/deskapp.py",
@@ -232,7 +232,7 @@ VERA_JSON = """{
   },
   "owner": {
     "name": "",
-    "room": "Vera"
+    "room": "Helene"
   },
   "model": {
     "framework": "openai",
@@ -256,7 +256,7 @@ def main() -> None:
     parser.add_argument("--skip-runtime", action="store_true",
                         help="не пересобирать runtime (он уже в out)")
     args = parser.parse_args()
-    out = Path(args.out).resolve() / "Vera"
+    out = Path(args.out).resolve() / "Helene"
     cache = Path(args.out).resolve() / "cache"
     print(f"дистрибутив → {out}")
 
@@ -300,38 +300,38 @@ def main() -> None:
         if guard.exists():
             raise SystemExit(f"СЕКРЕТ В ПОСТАВКЕ: {guard} — сборка остановлена")
 
-    exe = DESK / "shell" / "target" / "release" / "vera.exe"
+    exe = DESK / "shell" / "target" / "release" / "helene.exe"
     if exe.exists():
-        shutil.copy2(exe, out / "vera.exe")
-        shutil.copy2(DESK / "shell" / "icons" / "icon.ico", out / "vera.ico")
-        print("vera.exe: положен")
+        shutil.copy2(exe, out / "helene.exe")
+        shutil.copy2(DESK / "shell" / "icons" / "icon.ico", out / "helene.ico")
+        print("helene.exe: положен")
     else:
-        print("⚠ vera.exe не найден — собери shell (cargo build --release --features custom-protocol)")
-    svc = DESK / "svc" / "target" / "release" / "vera-svc.exe"
+        print("⚠ helene.exe не найден — собери shell (cargo build --release --features custom-protocol)")
+    svc = DESK / "svc" / "target" / "release" / "helene-svc.exe"
     if svc.exists():
-        shutil.copy2(svc, out / "vera-svc.exe")
+        shutil.copy2(svc, out / "helene-svc.exe")
         for script in (DESK / "installer" / "service").glob("*.ps1"):
             shutil.copy2(script, out / script.name)
-        print("vera-svc.exe + скрипты службы: положены (опция)")
+        print("helene-svc.exe + скрипты службы: положены (опция)")
     else:
-        print("⚠ vera-svc.exe не найден — собери svc (cargo build --release)")
-    setup_exe = DESK / "setup" / "target" / "release" / "vera-setup.exe"
+        print("⚠ helene-svc.exe не найден — собери svc (cargo build --release)")
+    setup_exe = DESK / "setup" / "target" / "release" / "helene-setup.exe"
     if setup_exe.exists():
-        shutil.copy2(setup_exe, out / "vera-setup.exe")
-        print("vera-setup.exe: положен (установщик внутри поставки)")
+        shutil.copy2(setup_exe, out / "helene-setup.exe")
+        print("helene-setup.exe: положен (установщик внутри поставки)")
     else:
-        print("⚠ vera-setup.exe не найден — собери setup (npm run build + cargo build --release --features custom-protocol)")
+        print("⚠ helene-setup.exe не найден — собери setup (npm run build + cargo build --release --features custom-protocol)")
     relay = ROOT / "_relay_prod_src" / "target" / "release" / "codex-proxy-server.exe"
     if relay.exists():
-        shutil.copy2(relay, out / "vera-relay.exe")
-        print("vera-relay.exe: положен (подписка ChatGPT без ключа)")
+        shutil.copy2(relay, out / "helene-relay.exe")
+        print("helene-relay.exe: положен (подписка ChatGPT без ключа)")
     else:
         print("⚠ реле не найдено — собери _relay_prod_src (cargo build --release)")
     (out / "ПЕРВЫЙ-ЗАПУСК.md").write_text(FIRST_RUN, encoding="utf-8", newline="\n")
     shutil.copy2(DESK / "installer" / "THIRD-PARTY.md", out / "ЛИЦЕНЗИИ-ТРЕТЬИХ-СТОРОН.md")
     shutil.copy2(DESK / "installer" / "ЛИЦЕНЗИЯ.md", out / "ЛИЦЕНЗИЯ.md")
-    shutil.copy2(DESK / "resources" / "VERA-MAP.md", out / "КАК-УСТРОЕН-VERA.md")
-    (out / "vera.json").write_text(VERA_JSON, encoding="utf-8", newline="\n")
+    shutil.copy2(DESK / "resources" / "HELENE-MAP.md", out / "КАК-УСТРОЕН-HELENE.md")
+    (out / "helene.json").write_text(HELENE_JSON, encoding="utf-8", newline="\n")
     (out / "data").mkdir(exist_ok=True)
 
     total = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
@@ -339,10 +339,10 @@ def main() -> None:
     # Следы запуска установщика из этой же папки в архив не едут.
     for stray in ("install.log",):
         (out / stray).unlink(missing_ok=True)
-    archive = out.parent / "Vera"
+    archive = out.parent / "Helene"
     print("zip…")
-    shutil.make_archive(str(archive), "zip", out.parent, "Vera")
-    size = (out.parent / "Vera.zip").stat().st_size
+    shutil.make_archive(str(archive), "zip", out.parent, "Helene")
+    size = (out.parent / "Helene.zip").stat().st_size
     print(f"готово: {archive}.zip ({size / 1e6:.1f} МБ)")
 
 

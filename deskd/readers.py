@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Читатели дерева агента для окна Vera. ТОЛЬКО чтение.
+"""Читатели дерева агента для окна Helene. ТОЛЬКО чтение.
 
 Правила, выученные до этого приложения:
 - никаких замков её раннера (`run_listing` берёт .run.lock — сюда нельзя);
@@ -22,7 +22,7 @@ _MD_CAP = 400_000
 
 
 def tree() -> Path:
-    override = os.environ.get("VERA_TREE") or os.environ.get("PRAXIS_DESK_TREE")
+    override = os.environ.get("HELENE_TREE") or os.environ.get("PRAXIS_DESK_TREE")
     if override:
         return Path(override)
     data = Path("/data")
@@ -150,7 +150,7 @@ def _title_for(chat_id, titles: dict[str, str]) -> str:
     if not key:
         return ""
     if key in ("window", "pult"):
-        return "Окно"          # комната окна Vera — не Telegram, у неё нет чужого имени
+        return "Окно"          # комната окна Helene — не Telegram, у неё нет чужого имени
     if key in titles:
         return titles[key]
     base = key.split("__topic__")[0]

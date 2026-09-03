@@ -89,9 +89,9 @@ export async function render(container: HTMLElement): Promise<void> {
       feed.push(`<div class="day">${esc(d)}</div>`);
       day = d;
     }
-    const system = !m.outgoing && m.sender_name === "Vera";
+    const system = !m.outgoing && m.sender_name === "Helene";
     const own = !m.outgoing && !system; // владелец — справа, агент — слева
-    const name = m.outgoing ? S.agent : system ? "Vera" : m.sender_name || String(m.sender_id ?? "");
+    const name = m.outgoing ? S.agent : system ? "Helene" : m.sender_name || String(m.sender_id ?? "");
     const topic = m.topic_title ? ` <span class="badge">${esc(m.topic_title)}</span>` : "";
     const media = m.media ? ` <span class="muted">[${esc(m.media)}]</span>` : "";
     const edited = m.edited_at ? " · ред." : "";
@@ -128,7 +128,7 @@ async function renderPanel() {
   const byRun = new Map(S.runs.map((r) => [r.id, r]));
   const rows = turns.slice().reverse();
   panel.innerHTML =
-    `<div class="panel-head">Ходы · ${esc(S.roomName)}</div>` +
+    `<div class="panel-head">Действия · ${esc(S.roomName)}</div>` +
     (rows
       .map((t) => {
         const run = byRun.get(t.run_id) ?? ({} as Run);
@@ -151,7 +151,7 @@ async function renderPanel() {
         <div class="ev-steps" ${S.evOpen.has(t.run_id) ? "" : "hidden"}></div>
       </div>`;
       })
-      .join("") || '<div class="empty">Ходов ещё нет</div>');
+      .join("") || '<div class="empty">Действий ещё нет</div>');
   for (const el of panel.querySelectorAll<HTMLElement>(".ev")) {
     const id = el.dataset.ev!;
     el.querySelector(".ev-head")!.addEventListener("click", () => {

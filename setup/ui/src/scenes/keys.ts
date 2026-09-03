@@ -2,7 +2,7 @@
 // полем — зачем оно, человеческими словами.
 import { FormScene } from "./base";
 import { button, choice, el, explain, field } from "./form";
-import { probeModel, relayLogin, relayStatus, setup, type Provider } from "../setup";
+import { probeModel, relayLogin, relayModels, relayStatus, setup, type Effort, type Provider } from "../setup";
 
 export class KeysScene extends FormScene {
   private panes: Record<Provider, HTMLElement>;
@@ -18,6 +18,7 @@ export class KeysScene extends FormScene {
       value: setup.provider,
       items: [
         { value: "api", title: "Ключ API", text: "OpenAI и любой совместимый адрес" },
+        { value: "anthropic", title: "Anthropic API", text: "Anthropic, Z.ai и совместимые" },
         { value: "chatgpt", title: "Подписка ChatGPT", text: "вход в аккаунт, без ключа" },
         { value: "local", title: "Локальная модель", text: "Ollama или LM Studio на этом ПК" },
       ],
@@ -56,6 +57,44 @@ export class KeysScene extends FormScene {
     api.append(apiGrid, probeRow, apiModels, explain("Зачем ключ",
       "Ключ даёт агенту доступ к модели напрямую. Он лежит только в файле настроек на этом диске и никуда больше не уходит. Адрес и модель — любые OpenAI-совместимые."));
 
+    // Anthropic-совместимые: Anthropic и Z.ai (тот же протокол, другой адрес).
+    const anthropic = el("div", "pane");
+    const anthGrid = el("div", "form-grid three");
+    const anthBase = field({ label: "Адрес", value: setup.anthropic.base_url, mono: true, onInput: (v) => (setup.anthropic.base_url = v) });
+    const anthModel = field({ label: "Модель", value: setup.anthropic.model, mono: true, onInput: (v) => (setup.anthropic.model = v) });
+    anthGrid.append(
+      anthBase,
+      anthModel,
+      field({ label: "Ключ", value: setup.anthropic.key, type: "password", mono: true, placeholder: "sk-ant-…", onInput: (v) => (setup.anthropic.key = v) }),
+    );
+    const anthPresets = el("div", "actions");
+    for (const [label, url] of [["Anthropic", "https://api.anthropic.com"], ["Z.ai (GLM)", "https://api.z.ai/api/anthropic"]] as Array<[string, string]>) {
+      anthPresets.append(button(label, "quiet", () => {
+        setup.anthropic.base_url = url;
+        setInput(anthBase, url);
+      }));
+    }
+    const anthModels = el("div", "models");
+    anthModels.hidden = true;
+    const anthProbeRow = el("div", "actions");
+    const anthOut = el("span", "receipt");
+    anthProbeRow.append(
+      button("Проверить ключ", "quiet", async () => {
+        anthOut.className = "receipt";
+        anthOut.textContent = "проверяю…";
+        const r = await probeModel(setup.anthropic.base_url, setup.anthropic.key, "anthropic").catch((e) => ({ ok: false, note: String(e), models: [] as string[] }));
+        anthOut.className = "receipt " + (r.ok ? "ok" : "err");
+        anthOut.textContent = r.note;
+        renderModels(anthModels, r.models || [], setup.anthropic.model, (id) => {
+          setup.anthropic.model = id;
+          setInput(anthModel, id);
+        });
+      }),
+      anthOut,
+    );
+    anthropic.append(anthGrid, anthPresets, anthProbeRow, anthModels, explain("Тот же ключ, другой протокол",
+      "Anthropic и Z.ai говорят на протоколе Anthropic Messages. Адрес и модель — из их документации; проверка спросит список моделей, если сервер его отдаёт."));
+
     const chatgpt = el("div", "pane");
     const relayRow = el("div", "actions");
     const relayOut = el("span", "receipt");
@@ -84,10 +123,32 @@ export class KeysScene extends FormScene {
     relayRow.append(loginBtn, relayOut);
     void relayRefresh();
     const chatgptGrid = el("div", "form-grid two");
-    chatgptGrid.append(
-      field({ label: "Модель", value: setup.chatgpt_model, mono: true, onInput: (v) => (setup.chatgpt_model = v) }),
+    const chatgptModel = field({ label: "Модель", value: setup.chatgpt_model, mono: true, onInput: (v) => (setup.chatgpt_model = v) });
+    chatgptGrid.append(chatgptModel);
+    const relayModelsBox = el("div", "models");
+    relayModelsBox.hidden = true;
+    const relayModelsRow = el("div", "actions");
+    const relayModelsOut = el("span", "receipt");
+    relayModelsRow.append(
+      button("Показать модели реле", "quiet", async () => {
+        relayModelsOut.className = "receipt";
+        relayModelsOut.textContent = "спрашиваю реле…";
+        try {
+          const ids = await relayModels();
+          relayModelsOut.className = "receipt ok";
+          relayModelsOut.textContent = `Реле знает моделей: ${ids.length}`;
+          renderModels(relayModelsBox, ids, setup.chatgpt_model, (id) => {
+            setup.chatgpt_model = id;
+            setInput(chatgptModel, id);
+          });
+        } catch (e) {
+          relayModelsOut.className = "receipt err";
+          relayModelsOut.textContent = String(e);
+        }
+      }),
+      relayModelsOut,
     );
-    chatgpt.append(chatgptGrid, relayRow, explain("Как это работает",
+    chatgpt.append(chatgptGrid, relayModelsRow, relayModelsBox, relayRow, explain("Как это работает",
       "Встроенное реле ходит в ChatGPT по твоей подписке. Вход откроет браузер; учётные данные переедут в установленную программу. Ключ не нужен. Войти можно и позже, в настройках; там же после входа виден список моделей подписки, и модель можно сменить."));
 
     const local = el("div", "pane");
@@ -118,9 +179,27 @@ export class KeysScene extends FormScene {
     local.append(localGrid, localProbeRow, localModels, explain("Всё остаётся здесь",
       "Ollama или LM Studio на этом компьютере. Ключа нет, в сеть ничего не уходит. Модель должна быть уже скачана."));
 
-    this.panes = { api, chatgpt, local };
+    this.panes = { api, anthropic, chatgpt, local };
     const paneBox = el("div", "panes");
-    paneBox.append(api, chatgpt, local);
+    paneBox.append(api, anthropic, chatgpt, local);
+
+    // Усилие рассуждения — отдельный селектор, начальное значение (слово владельца).
+    const effortBox = el("div", "effort");
+    effortBox.append(el("h3", "form-sub", "Усилие рассуждения"));
+    const effortRow = el("div", "models");
+    const efforts: Array<[Effort, string]> = [["", "по умолчанию модели"], ["low", "low"], ["medium", "medium"], ["high", "high"], ["xhigh", "xhigh"]];
+    for (const [value, label] of efforts) {
+      const chip = el("button", "model-chip", label) as HTMLButtonElement;
+      chip.type = "button";
+      chip.setAttribute("aria-pressed", String(setup.reasoning_effort === value));
+      chip.addEventListener("click", () => {
+        setup.reasoning_effort = value;
+        for (const other of effortRow.querySelectorAll(".model-chip")) other.setAttribute("aria-pressed", String(other === chip));
+      });
+      effortRow.append(chip);
+    }
+    effortBox.append(effortRow, explain("",
+      "Сколько модель думает перед ответом. Не у всех моделей есть эта ручка; где нет — значение просто не уйдёт. Менять можно в настройках."));
 
     const tg = el("div", "tg");
     tg.append(el("h3", "form-sub", "Telegram, если нужен"));
@@ -132,7 +211,7 @@ export class KeysScene extends FormScene {
     tg.append(tgGrid, explain("",
       "Бот — вторая дверь к агенту, кроме окна. Токен выдаёт @BotFather, свой id подскажет @userinfobot: без него агент не поймёт, кто из пишущих его владелец. Можно оставить пустым. Свой аккаунт Telegram для агента (не бот) подключается после установки, в настройках."));
 
-    this.mount(head, lead, picker, paneBox, tg);
+    this.mount(head, lead, picker, paneBox, effortBox, tg);
     this.showPane(setup.provider);
   }
 

@@ -2,7 +2,7 @@
 """Подача конфига продукта её дереву: раскладка, ручки среды, мозг.
 
 Один принцип владельца — ПОЛНАЯ КОНФИГУРИРУЕМОСТЬ — и один файл настроек рядом с exe
-(`vera.json`). Дерево агента конфигурируется 321 env-ручкой и своим `memory/llm.json`;
+(`helene.json`). Дерево агента конфигурируется 321 env-ручкой и своим `memory/llm.json`;
 здесь ровно шов между ними: продукт кладёт значения ТУДА, где дерево их и читает,
 вместо второй реализации тех же решений.
 
@@ -57,7 +57,7 @@ _SOUL_FALLBACK = """# Конституция
 
 ## Кто я
 
-Меня зовут {{agent}}. Я агент, собранный в Vera и живущий на компьютере {{owner}}.
+Меня зовут {{agent}}. Я агент, собранный в Helene и живущий на компьютере {{owner}}.
 
 ## Кому я верен
 
@@ -69,7 +69,7 @@ def agent_name(cfg: dict) -> str:
     """Имя агента даёт владелец при установке: `agent.name`.
 
     Старые конфиги держали его в `telegram.agent_name` — читаем и оттуда, чтобы
-    не терять имя при обновлении. Пустое имя — не «Vera» и не чужое имя, а
+    не терять имя при обновлении. Пустое имя — не «Helene» и не чужое имя, а
     честное «Агент»: продукт не подписывает агента именем, которого ему не давали.
     """
     agent = cfg.get("agent") or {}
@@ -111,7 +111,7 @@ def ensure_layout(tree: Path, cfg: dict | None = None) -> None:
 
 
 def env_knobs(cfg: dict) -> dict[str, str]:
-    """Ручки среды: порт-дефолты, поверх — `env` из vera.json (его слово последнее)."""
+    """Ручки среды: порт-дефолты, поверх — `env` из helene.json (его слово последнее)."""
     knobs = dict(PORT_DEFAULTS)
     for key, value in (cfg.get("env") or {}).items():
         if value is None:
@@ -180,13 +180,13 @@ def dotenv_gate(code_dir: Path, cfg: dict) -> None:
     как поведёт себя у пользователя, и отладка врала.
 
     Дефолт: НЕ читать (`"read_dotenv": false`) — единственный источник настроек это
-    vera.json. Кому нужен старый способ — ставит `true`, и дерево читает `.env` как
+    helene.json. Кому нужен старый способ — ставит `true`, и дерево читает `.env` как
     читало. Оба случая называются в логе: тихой разницы между ними быть не должно.
     """
     stray = code_dir / ".env"
     if bool(cfg.get("read_dotenv")):
         if stray.exists():
-            log.warning("читаю %s по просьбе конфига: его значения перекроют vera.json "
+            log.warning("читаю %s по просьбе конфига: его значения перекроют helene.json "
                         "на импорте (load_dotenv override=True)", stray)
         return
     try:
@@ -196,15 +196,15 @@ def dotenv_gate(code_dir: Path, cfg: dict) -> None:
     dotenv.load_dotenv = lambda *a, **kw: False
     if stray.exists():
         log.warning("рядом с деревом лежит %s — НЕ читаю его (read_dotenv=false): "
-                    "настройки продукта живут в vera.json", stray)
+                    "настройки продукта живут в helene.json", stray)
 
 
 # --------------------------------------------------------------------------- #
-#  Мозг: model из vera.json -> её memory/llm.json
+#  Мозг: model из helene.json -> её memory/llm.json
 # --------------------------------------------------------------------------- #
 
 def _brain_config(cfg: dict) -> dict:
-    """vera.json -> схема её llm.json (frameworks + roles + limits).
+    """helene.json -> схема её llm.json (frameworks + roles + limits).
 
     Оба фреймворка описаны всегда: фолбэк роли и её собственный `switch_brain` живут
     на этой развилке. Второй роли (`evaluator` — привратник исходящего) отдельного
@@ -243,11 +243,11 @@ def _brain_config(cfg: dict) -> dict:
 
 
 def project_brain(tree: Path, cfg: dict) -> str:
-    """Положить мозг из vera.json в её `memory/llm.json` — но не затирать ЕЁ выбор.
+    """Положить мозг из helene.json в её `memory/llm.json` — но не затирать ЕЁ выбор.
 
     У неё есть своя рука `switch_brain`: она правит этот же файл. Переписывать его на
     каждом старте значило бы молча отменять её решение при каждом запуске окна. Поэтому
-    проекция идёт ровно тогда, когда изменился САМ vera.json (сверяем отпечаток блока
+    проекция идёт ровно тогда, когда изменился САМ helene.json (сверяем отпечаток блока
     модели с распиской прошлой проекции) — или когда конфига мозга ещё нет.
 
     -> строка для лога: что сделано и почему.
@@ -263,7 +263,7 @@ def project_brain(tree: Path, cfg: dict) -> str:
         except (OSError, ValueError):
             seen = None
         if seen == fingerprint:
-            return "мозг: llm.json на месте, vera.json не менялся — не трогаю"
+            return "мозг: llm.json на месте, helene.json не менялся — не трогаю"
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(".tmp-llm.json")
     tmp.write_text(json.dumps(built, ensure_ascii=False, indent=1),
@@ -277,5 +277,5 @@ def project_brain(tree: Path, cfg: dict) -> str:
     receipt.write_text(json.dumps({"fingerprint": fingerprint}, ensure_ascii=False),
                        encoding="utf-8", newline="\n")
     role = built["roles"]["voice"]
-    return (f"мозг: llm.json записан из vera.json — {role['model']} @ "
+    return (f"мозг: llm.json записан из helene.json — {role['model']} @ "
             f"{built['frameworks'][role['framework']]['base_url']} ({role['framework']})")

@@ -9,7 +9,7 @@
 //! computer-use всегда живут в трее сессии; служба их не заменяет.
 //!
 //! CLI:
-//!   frame-svc install --config C:\...\vera.json   (требует админа, один UAC)
+//!   frame-svc install --config C:\...\helene.json   (требует админа, один UAC)
 //!   frame-svc uninstall
 //!   frame-svc run --config <path>                 (вход SCM; руками не звать)
 //!   frame-svc foreground --config <path>          (та же логика в консоли — отладка)
@@ -31,8 +31,8 @@ use windows_service::service_control_handler::{self, ServiceControlHandlerResult
 use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 use windows_service::{define_windows_service, service_dispatcher};
 
-const SERVICE_NAME: &str = "Vera";
-const SERVICE_DISPLAY: &str = "Vera · агент";
+const SERVICE_NAME: &str = "Helene";
+const SERVICE_DISPLAY: &str = "Helene · агент";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 fn now_stamp() -> String {
@@ -85,8 +85,8 @@ fn spawn_child(python: &Path, script: &Path, args: &[String], tree: &Path, host:
     cmd.arg("-u")
         .arg(script)
         .args(args)
-        .env("VERA_TREE", tree)
-        .env("VERA_HOST", host)
+        .env("HELENE_TREE", tree)
+        .env("HELENE_HOST", host)
         .env("PYTHONUTF8", "1");
     if let Some(dir) = script.parent() {
         cmd.current_dir(dir);
@@ -111,9 +111,9 @@ struct Plan {
 
 fn load_plan(config_path: &Path) -> Result<Plan, String> {
     let raw = std::fs::read_to_string(config_path)
-        .map_err(|e| format!("vera.json не читается: {e}"))?;
+        .map_err(|e| format!("helene.json не читается: {e}"))?;
     let cfg: serde_json::Value =
-        serde_json::from_str(&raw).map_err(|e| format!("vera.json не разобрался: {e}"))?;
+        serde_json::from_str(&raw).map_err(|e| format!("helene.json не разобрался: {e}"))?;
     let base = config_path.parent().unwrap_or(Path::new(".")).to_path_buf();
     let python = match cfg.get("python").and_then(|v| v.as_str()) {
         Some(raw) if raw != "python" => resolve(&base, raw),
@@ -171,7 +171,7 @@ fn spawn_relay(plan: &Plan) -> Option<Child> {
     // Та же семантика, что у оболочки (shell/main.rs::spawn_relay): реле живёт
     // в data/relay, конфигурируется окружением, консоли не имеет.
     let base = plan.config.parent()?.to_path_buf();
-    let exe = base.join("vera-relay.exe");
+    let exe = base.join("helene-relay.exe");
     if !exe.exists() {
         return None;
     }
@@ -261,7 +261,7 @@ fn supervise(plan: &Plan, stop: Arc<AtomicBool>, log: &mut Log) {
                 }
                 relay = spawn_relay(plan);
                 if relay.is_none() {
-                    log.line("реле: не поднялось (нет vera-relay.exe?)");
+                    log.line("реле: не поднялось (нет helene-relay.exe?)");
                 }
                 relay_backoff = (relay_backoff * 2).clamp(5, 60);
                 relay_not_before = Instant::now() + Duration::from_secs(relay_backoff);
@@ -287,7 +287,7 @@ define_windows_service!(ffi_service_main, service_main);
 fn service_main(_arguments: Vec<OsString>) {
     let config = arg_after("--config")
         .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_exe().unwrap().with_file_name("vera.json"));
+        .unwrap_or_else(|| std::env::current_exe().unwrap().with_file_name("helene.json"));
     let plan = match load_plan(&config) {
         Ok(p) => p,
         Err(_) => return,
@@ -381,9 +381,9 @@ fn main() {
         "install" => {
             let config = arg_after("--config")
                 .map(PathBuf::from)
-                .unwrap_or_else(|| std::env::current_exe().unwrap().with_file_name("vera.json"))
+                .unwrap_or_else(|| std::env::current_exe().unwrap().with_file_name("helene.json"))
                 .canonicalize()
-                .unwrap_or_else(|_| PathBuf::from("vera.json"));
+                .unwrap_or_else(|_| PathBuf::from("helene.json"));
             if let Err(e) = install(&config) {
                 eprintln!("не установилась: {e}");
                 std::process::exit(1);
@@ -417,7 +417,7 @@ fn main() {
             supervise(&plan, stop, &mut log);
         }
         _ => {
-            eprintln!("frame-svc install|uninstall|run|foreground [--config vera.json]");
+            eprintln!("frame-svc install|uninstall|run|foreground [--config helene.json]");
             std::process::exit(2);
         }
     }
